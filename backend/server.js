@@ -307,6 +307,7 @@ app.post("/api/forge", readLimiter, async (req, res) => {
 
   const { daoA, daoB, tier } = parsed.data;
   const key = pairKey(daoA, daoB, tier);
+  console.log(`[forge] lookup requested key="${key}"`);
 
   try {
     const cached = await pool.query(
@@ -314,8 +315,10 @@ app.post("/api/forge", readLimiter, async (req, res) => {
       [key]
     );
     if (cached.rowCount > 0) {
+      console.log(`[forge] cache hit key="${key}" result="${cached.rows[0]?.result_json?.name || "unknown"}"`);
       return res.json({ source: "cache", result: cached.rows[0].result_json });
     }
+    console.log(`[forge] cache miss key="${key}"`);
     return res.status(404).json({ error: "NotFound" });
   } catch (err) {
     console.error("forge cache query failed:", {
@@ -335,6 +338,7 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
 
   const { daoA, daoB, tier } = parsed.data;
   const key = pairKey(daoA, daoB, tier);
+  console.log(`[forge] generate requested key="${key}"`);
 
   try {
     const cached = await pool.query(
@@ -342,9 +346,11 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
       [key]
     );
     if (cached.rowCount > 0) {
+      console.log(`[forge] generate reused cached key="${key}" result="${cached.rows[0]?.result_json?.name || "unknown"}"`);
       return res.json({ source: "cache", result: cached.rows[0].result_json });
     }
 
+    console.log(`[forge] generating new key="${key}"`);
     const generated = await callForgeModel(daoA, daoB, tier);
     const ipHash = hashIp(req.ip);
 
@@ -360,6 +366,7 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
       "SELECT result_json FROM forge_results WHERE pair_key = $1",
       [key]
     );
+    console.log(`[forge] generated and stored key="${key}" result="${inserted.rows[0]?.result_json?.name || "unknown"}"`);
     return res.json({ source: "generated", result: inserted.rows[0].result_json });
   } catch (err) {
     console.error("forge generate failed:", {

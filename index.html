@@ -1184,6 +1184,23 @@
           });
         return sessionTokenPromise;
       }
+
+      function simplifyGeneratedDaoName(name, targetTier) {
+        if (targetTier === 9) return name;
+        let s = String(name || "").trim();
+        if (!s) return name;
+        // Examples:
+        // - "Dao of Steam and Mist Dao" -> "Mist"
+        // - "Mist Dao" -> "Mist"
+        s = s.replace(/\s+Dao\s*$/i, "").trim();
+        s = s.replace(/^Dao\s+of\s+/i, "").trim();
+        s = s.replace(/\bDao\s+of\s+/ig, "").trim();
+        const parts = s.split(/\s+(?:and|&)\s+/i).map((p) => p.trim()).filter(Boolean);
+        if (parts.length > 1) s = parts[parts.length - 1];
+        s = s.replace(/^[\s\-]+|[\s\-]+$/g, "").trim();
+        return s ? s : name;
+      }
+
       function normalizeResult(raw, targetTier, daoA, daoB) {
         const safe = {};
         const existing = new Set(Object.keys(state.canonicalDaos));
@@ -1194,14 +1211,13 @@
         safe.harmonyClass = allowedHar.includes(raw.harmonyClass) ? raw.harmonyClass : "Heaven";
         safe.description = String(raw.description || "The path between two truths briefly reveals itself.").slice(0, 160);
         let candidate = String(raw.name || "").trim();
-        if (!candidate) candidate = `${daoA.name.split(" ")[0]}-${daoB.name.split(" ")[0]} Dao`;
+        if (!candidate) candidate = `${daoA.name.split(" ")[0]}-${daoB.name.split(" ")[0]}`;
         if (targetTier === 9) {
           if (!["Creation", "Oblivion"].includes(candidate)) {
             candidate = safe.affinity === "Yang" ? "Creation" : (safe.affinity === "Yin" ? "Oblivion" : (Math.random() > 0.5 ? "Creation" : "Oblivion"));
           }
-        } else if (!candidate.endsWith("Dao")) {
-          candidate = candidate + " Dao";
         }
+        candidate = simplifyGeneratedDaoName(candidate, targetTier);
         if (existing.has(candidate)) {
           candidate = candidate + " " + Math.floor(100 + Math.random() * 900);
         }

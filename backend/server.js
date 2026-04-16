@@ -149,13 +149,22 @@ function normalizeForgeResult(raw, daoA, daoB, tier) {
   out.harmonyClass = allowedHarmony.has(raw?.harmonyClass) ? raw.harmonyClass : "Human";
 
   let name = String(raw?.name || "").trim();
-  if (!name) name = `${normalizeName(daoA)}-${normalizeName(daoB)} Dao`;
+  if (!name) name = `${normalizeName(daoA)}-${normalizeName(daoB)}`;
   if (tier === 9) {
     if (!["Creation", "Oblivion"].includes(name)) {
       name = out.affinity === "Yin" ? "Oblivion" : "Creation";
     }
-  } else if (!name.endsWith("Dao")) {
-    name += " Dao";
+  }
+  if (tier !== 9) {
+    // Examples:
+    // - "Dao of Steam and Mist Dao" -> "Mist"
+    // - "Mist Dao" -> "Mist"
+    name = name.replace(/\s+Dao\s*$/i, "").trim();
+    name = name.replace(/^Dao\s+of\s+/i, "").trim();
+    name = name.replace(/\bDao\s+of\s+/ig, "").trim();
+    const parts = name.split(/\s+(?:and|&)\s+/i).map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1) name = parts[parts.length - 1];
+    name = name.replace(/^[\s\-]+|[\s\-]+$/g, "").trim() || name;
   }
   out.name = name.slice(0, 60);
 

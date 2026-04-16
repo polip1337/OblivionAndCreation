@@ -124,7 +124,21 @@ function pairKey(daoA, daoB, tier) {
 }
 
 function hashIp(ip) {
-  return crypto.createHash("sha256").update(String(ip || "")).digest("hex");
+  let normalized = String(ip || "").trim();
+  // Normalize IPv4-mapped IPv6 addresses to a consistent string.
+  // Example: ::ffff:1.2.3.4 -> 1.2.3.4
+  normalized = normalized.replace(/^::ffff:/i, "");
+  return crypto.createHash("sha256").update(normalized).digest("hex");
+}
+
+function getClientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.trim()) {
+    // Use left-most (original client) when multiple proxies append.
+    return xff.split(",")[0].trim();
+  }
+  // Fallback to Express' parsed ip (depends on trust proxy).
+  return req.ip || req.socket?.remoteAddress || "";
 }
 
 function normalizeForgeResult(raw, daoA, daoB, tier) {
@@ -236,7 +250,7 @@ function requireSessionScope(requiredScope) {
       const payload = jwt.verify(token, SERVER_AUTH_TOKEN, {
         issuer: SESSION_ISSUER
       });
-      const expectedIpHash = hashIp(req.ip);
+      const expectedIpHash = hashIp(getClientIp(req));
       if (!payload || payload.ip_hash !== expectedIpHash) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -254,7 +268,7 @@ function requireSessionScope(requiredScope) {
 app.post("/api/session", sessionLimiter, async (req, res) => {
   // Issue a short-lived JWT tied to the caller's IP.
   // This avoids putting long-lived secrets in the browser.
-  const ipHash = hashIp(req.ip);
+  const ipHash = hashIp(getClientIp(req));
   const ttl = Number(SESSION_TTL_SECONDS);
   const token = jwt.sign(
     { ip_hash: ipHash, scopes: ["forge:generate", "forge:hint"] },

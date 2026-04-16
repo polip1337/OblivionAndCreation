@@ -16,7 +16,7 @@ const {
   ALLOWED_ORIGIN,
   ALLOW_NULL_ORIGIN = "false",
   SERVER_AUTH_TOKEN,
-  TRUST_PROXY = "true"
+  TRUST_PROXY_HOPS = "1"
 } = process.env;
 
 if (!DATABASE_URL) {
@@ -34,7 +34,8 @@ if (!SERVER_AUTH_TOKEN) {
 
 const app = express();
 app.disable("x-powered-by");
-app.set("trust proxy", TRUST_PROXY === "true");
+const trustProxyHops = Number(TRUST_PROXY_HOPS);
+app.set("trust proxy", Number.isFinite(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 1);
 
 app.use(helmet({
   contentSecurityPolicy: false,

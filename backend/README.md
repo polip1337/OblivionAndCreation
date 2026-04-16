@@ -24,6 +24,7 @@ This backend keeps your LLM key server-side and stores shared forge results in P
 1. Create a Postgres database (Supabase is fine).
 2. Run `schema.sql`.
 3. Copy `.env.example` to `.env` and fill values.
+   - On Render, keep `TRUST_PROXY_HOPS=1` (not boolean `true`).
 4. Install deps:
    - `npm install`
 5. Run:

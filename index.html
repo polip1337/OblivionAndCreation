@@ -775,7 +775,12 @@
       const STAGE_TOOLTIPS = {
         1: { anchor: "#inventory-panel", title: "Your seeds are planted.", body: "These are your Tier 1 Daos — select two to begin combining.", position: "right" },
         2: { anchor: "#forge-panel", title: "The Forge awakens.", body: "Click two Dao cards, then press Forge.", position: "left" },
-        3: { anchor: "#cp-counter", title: "Comprehension Points.", body: "Discoveries earn CP. Higher forges spend CP.", position: "bottom" },
+        3: {
+          anchor: "#cp-counter",
+          title: "Comprehension Points (CP).",
+          body: "You begin with 50 CP. Discoveries and meditation earn more CP; forging and hints spend it.",
+          position: "bottom"
+        },
         4: { anchor: ".tier-badge", title: "Tiers mark power.", body: "Higher tiers demand higher rank.", position: "right" },
         5: { anchor: "#inventory-filters", title: "Filter your collection.", body: "Use filters as your inventory grows.", position: "bottom" },
         6: { anchor: "#info-panel", title: "The Dao reveals itself.", body: "Click any card to inspect description and lineage.", position: "left" },
@@ -789,8 +794,8 @@
       const BASE_STATE = {
         version: VERSION,
         playerRank: 1,
-        comprehensionPoints: 0,
-        totalCpEarned: 0,
+        comprehensionPoints: 50,
+        totalCpEarned: 50,
         inventory: [],
         discoveredCombinations: {},
         canonicalDaos: {},
@@ -2445,12 +2450,16 @@
         }
       }
       function initialize() {
+        const isFirstLaunch = !localStorage.getItem(SAVE_KEY);
         state = loadState();
         if (!state.inventory || !Array.isArray(state.inventory) || !state.inventory.length) {
           state = bootstrapState();
         }
         saveState();
         initRuntime();
+        if (isFirstLaunch) {
+          showToast("You begin this cycle with 50 CP.", "info");
+        }
       }
       window.addEventListener("beforeunload", () => {
         if (decayInterval) clearInterval(decayInterval);

@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import OpenAI from "openai";
 import { Pool } from "pg";
 import { z } from "zod";
+import jwt from "jsonwebtoken";
 
 const {
   PORT = "3000",
@@ -16,7 +17,9 @@ const {
   ALLOWED_ORIGIN,
   ALLOW_NULL_ORIGIN = "false",
   SERVER_AUTH_TOKEN,
-  TRUST_PROXY_HOPS = "1"
+  TRUST_PROXY_HOPS = "1",
+  SESSION_TTL_SECONDS = "600",
+  SESSION_ISSUER = "dao-forge"
 } = process.env;
 
 if (!DATABASE_URL) {
@@ -83,6 +86,13 @@ const readLimiter = rateLimit({
 const generateLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 12,
+  standardHeaders: "draft-7",
+  legacyHeaders: false
+});
+
+const sessionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
   standardHeaders: "draft-7",
   legacyHeaders: false
 });
@@ -190,14 +200,49 @@ async function callHintModel(knownDaos) {
   return content.slice(0, 100) || "No omen answered.";
 }
 
-function requireServerToken(req, res, next) {
+function getBearerToken(req) {
   const authHeader = String(req.get("authorization") || "");
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
-  if (!token || token !== SERVER_AUTH_TOKEN) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  return next();
+  return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 }
+
+function requireSessionScope(requiredScope) {
+  return (req, res, next) => {
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ error: "Unauthorized" });
+    try {
+      const payload = jwt.verify(token, SERVER_AUTH_TOKEN, {
+        issuer: SESSION_ISSUER
+      });
+      const expectedIpHash = hashIp(req.ip);
+      if (!payload || payload.ip_hash !== expectedIpHash) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const scopes = Array.isArray(payload.scopes) ? payload.scopes : [];
+      if (!scopes.includes(requiredScope)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      return next();
+    } catch {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+  };
+}
+
+app.post("/api/session", sessionLimiter, async (req, res) => {
+  // Issue a short-lived JWT tied to the caller's IP.
+  // This avoids putting long-lived secrets in the browser.
+  const ipHash = hashIp(req.ip);
+  const ttl = Number(SESSION_TTL_SECONDS);
+  const token = jwt.sign(
+    { ip_hash: ipHash, scopes: ["forge:generate", "forge:hint"] },
+    SERVER_AUTH_TOKEN,
+    {
+      issuer: SESSION_ISSUER,
+      expiresIn: Number.isFinite(ttl) && ttl > 0 ? ttl : 600
+    }
+  );
+  return res.json({ token, expiresIn: ttl || 600 });
+});
 
 app.get("/health", async (req, res) => {
   try {
@@ -236,7 +281,7 @@ app.post("/api/forge", readLimiter, async (req, res) => {
   }
 });
 
-app.post("/api/forge/generate", requireServerToken, generateLimiter, async (req, res) => {
+app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:generate"), async (req, res) => {
   const parsed = forgeInputSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid forge payload" });
@@ -280,7 +325,7 @@ app.post("/api/forge/generate", requireServerToken, generateLimiter, async (req,
   }
 });
 
-app.post("/api/hint", requireServerToken, generateLimiter, async (req, res) => {
+app.post("/api/hint", generateLimiter, requireSessionScope("forge:hint"), async (req, res) => {
   const parsed = hintInputSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid hint payload" });

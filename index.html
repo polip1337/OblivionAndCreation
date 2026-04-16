@@ -717,7 +717,6 @@
       // === CONSTANTS ===
       const SAVE_KEY = "dao_synthesis_save";
       const BACKEND_URL = "https://oblivionandcreation.onrender.com";
-      const BACKEND_GENERATE_TOKEN = "";
       const VERSION = 4;
       const ONE_HOUR = 60 * 60 * 1000;
       const ONE_DAY = 24 * ONE_HOUR;
@@ -850,6 +849,8 @@
       // === STATE ===
       let state = null;
       let backendConfiguredToastShown = false;
+      let sessionToken = null;
+      let sessionTokenPromise = null;
       let decayInterval = null;
       let quoteIndex = 0;
       let forgeBusy = false;
@@ -1151,10 +1152,37 @@
       // === API ===
       function backendHeaders(includeAuth) {
         const headers = { "Content-Type": "application/json" };
-        if (includeAuth && BACKEND_GENERATE_TOKEN) {
-          headers.Authorization = `Bearer ${BACKEND_GENERATE_TOKEN}`;
-        }
+        if (includeAuth && sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
         return headers;
+      }
+
+      async function ensureSessionToken() {
+        if (sessionToken) return sessionToken;
+        if (sessionTokenPromise) return sessionTokenPromise;
+        sessionTokenPromise = (async () => {
+          const resp = await fetch(`${BACKEND_URL}/api/session`, {
+            method: "POST",
+            headers: backendHeaders(false),
+            body: JSON.stringify({})
+          });
+          if (!resp.ok) {
+            throw Object.assign(new Error("Session token request failed"), { code: resp.status });
+          }
+          const data = await resp.json();
+          if (!data || typeof data.token !== "string" || !data.token) {
+            throw Object.assign(new Error("Session token missing"), { code: 401 });
+          }
+          sessionToken = data.token;
+          return sessionToken;
+        })()
+          .catch((e) => {
+            sessionToken = null;
+            throw e;
+          })
+          .finally(() => {
+            sessionTokenPromise = null;
+          });
+        return sessionTokenPromise;
       }
       function normalizeResult(raw, targetTier, daoA, daoB) {
         const safe = {};
@@ -1211,15 +1239,14 @@
           throw new Error("Forge cache request failed: " + cacheResponse.status);
         }
 
-        if (!BACKEND_GENERATE_TOKEN) {
-          throw Object.assign(new Error("Forge generation locked"), { code: 401 });
-        }
+        await ensureSessionToken();
 
         const generateResponse = await fetch(`${BACKEND_URL}/api/forge/generate`, {
           method: "POST",
           headers: backendHeaders(true),
           body: JSON.stringify(payload)
         });
+        if (generateResponse.status === 401) throw Object.assign(new Error("Unauthorized generation"), { code: 401 });
         if (generateResponse.status === 429) throw Object.assign(new Error("Rate limited"), { code: 429 });
         if (!generateResponse.ok) throw new Error("Forge generation failed: " + generateResponse.status);
         const generatedData = await generateResponse.json();
@@ -1479,7 +1506,7 @@
           if (err.code === 429) {
             showToast("The oracle is constrained by heaven. Retry shortly.", "warning");
           } else if (err.code === 401) {
-            showToast("This combination is unknown on the server and generation is locked.", "warning");
+            showToast("The server rejected generation for your session. Retry shortly.", "warning");
           } else {
             showToast("The oracle is silent.", "danger");
           }
@@ -2319,8 +2346,10 @@
           showToast("Need 20 CP to seek a hint.", "warning");
           return;
         }
-        if (!BACKEND_GENERATE_TOKEN) {
-          showToast("Hints are disabled in hardened mode unless server auth is enabled.", "warning");
+        try {
+          await ensureSessionToken();
+        } catch {
+          showToast("Could not establish a server session for hints.", "warning");
           return;
         }
         consumeCp(20);

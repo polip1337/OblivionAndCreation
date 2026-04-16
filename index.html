@@ -1,0 +1,2463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dao Synthesis</title>
+  <style>
+    :root {
+      --bg: #0e0c12;
+      --panel: #1a1624;
+      --panel-2: #221d30;
+      --text: #e3dfef;
+      --muted: #9f97b5;
+      --line: #342c48;
+      --yang-1: #c9893a;
+      --yang-2: #f5c87a;
+      --yin-1: #4a3b7a;
+      --yin-2: #9b85d4;
+      --neutral: #8a9baa;
+      --earth: #4a6b4a;
+      --human: #7a5c30;
+      --paradox: #8a2a2a;
+      --danger: #bf3d3d;
+      --success: #4a8055;
+      --warning: #a88a3a;
+      --info: #4a6280;
+      --radius: 12px;
+      --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+      --card-min-h: 80px;
+      --transition: 160ms ease;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: radial-gradient(circle at top, #151122, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+    }
+    h1, h2, h3, .dao-name, .serif {
+      font-family: Georgia, "Times New Roman", serif;
+      letter-spacing: 0.2px;
+    }
+    button, input, select {
+      font: inherit;
+      color: inherit;
+      background: #2a2340;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    button { cursor: pointer; transition: transform var(--transition), opacity var(--transition), border-color var(--transition); }
+    button:hover:enabled { transform: translateY(-1px); border-color: #5a4c7d; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .hidden { display: none !important; }
+    #app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    .topbar {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(15, 12, 22, 0.8);
+      backdrop-filter: blur(6px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .library-btn {
+      background: #222f3d;
+      border-color: #476184;
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+    .reset-btn {
+      background: #2f1f2a;
+      border-color: #6a3f58;
+      font-size: 12px;
+      padding: 6px 10px;
+    }
+    .title-wrap { display: flex; align-items: center; gap: 10px; }
+    .bagua {
+      width: 26px; height: 26px; border: 2px solid #7c6ca7; border-radius: 50%;
+      position: relative; animation: spinSlow 10s linear infinite;
+    }
+    .bagua::before, .bagua::after {
+      content: ""; position: absolute; inset: 4px; border: 1px dashed #6f6099; border-radius: 50%;
+    }
+    .screen { display: grid; grid-template-columns: 340px 1fr 280px; gap: 10px; padding: 10px; }
+    .panel {
+      background: linear-gradient(160deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 78px);
+    }
+    .panel-header {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-body { padding: 12px; overflow: auto; }
+    .mobile-tabs { display: none; border-bottom: 1px solid var(--line); padding: 8px; gap: 8px; }
+    .mobile-tabs button.active { border-color: #8471ba; background: #33284b; }
+    .stats { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+    .chip { background: #302743; border: 1px solid #4d3f6a; border-radius: 999px; padding: 4px 8px; font-size: 12px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .search-row { margin-bottom: 8px; }
+    .search-row input { width: 100%; }
+    .filters button.active { border-color: #8471ba; background: #3a2d56; }
+    .dao-grid { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 8px; }
+    .dao-card {
+      border: 1px solid #4a3d61;
+      border-radius: 12px;
+      min-height: var(--card-min-h);
+      background: #1d1830;
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+      transition: transform var(--transition), border-color var(--transition);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .fav-toggle {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid #5d507a;
+      background: #261f38;
+      color: #8a9baa;
+      font-size: 12px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .fav-toggle.active {
+      color: #f5c87a;
+      border-color: #c9893a;
+      background: #3a2a00;
+    }
+    .dao-card:hover { transform: translateY(-2px); }
+    .dao-card.selected { border-color: #cfb675; box-shadow: 0 0 0 1px #cfb675 inset; }
+    .dao-top { display: flex; justify-content: space-between; gap: 6px; align-items: start; }
+    .dao-name { font-size: 14px; line-height: 1.15; }
+    .dao-name.blank { color: transparent; text-shadow: 0 0 4px rgba(203, 199, 219, 0.24); }
+    .dao-meta { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
+    .tier-badge { border-radius: 999px; padding: 2px 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 11px; }
+    .tier-low { background: #2a2a3a; }
+    .tier-mid { background: #2a3a2a; }
+    .tier-high { background: #3a2a4a; }
+    .tier-t9-yang { background: linear-gradient(120deg, #4a2a00, #6a4a00); }
+    .tier-t9-yin { background: linear-gradient(120deg, #1a0a3a, #2a1a5a); }
+    .aff-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,0.2); }
+    .forge-slots { display: grid; grid-template-columns: minmax(0, 1fr) 130px minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 12px; }
+    .slot {
+      min-height: 120px;
+      border: 1px dashed #4e406b;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      align-content: center;
+      text-align: center;
+      background: rgba(30, 24, 45, 0.55);
+    }
+    .resonance-pill { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; white-space: nowrap; }
+    .resonance-locked { visibility: hidden; }
+    .res-resonance { color: #f6d8a2; border-color: #f6d8a2; }
+    .res-discord { color: #c9a8f3; border-color: #c9a8f3; }
+    .res-chaos { color: #ff9090; border-color: #ff9090; }
+    .res-neutral { color: #a7b5c4; border-color: #64788c; }
+    .forge-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .forge-btn { background: linear-gradient(120deg, #3b2f59, #6f4f3c); border-color: #8f7eb8; }
+    .hint-btn { background: #2b2540; }
+    .spinner { width: 20px; height: 20px; border: 2px solid #7b6ca5; border-top-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; display: none; }
+    .spinner.show { display: inline-block; }
+    .feed { border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; font-size: 13px; color: #c1b9d7; }
+    .harmony-bars { display: grid; gap: 8px; margin-bottom: 12px; }
+    .bar-row { display: grid; grid-template-columns: 68px 1fr 28px; gap: 8px; align-items: center; font-size: 12px; }
+    .bar { height: 10px; background: #2b233c; border: 1px solid #483c61; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; transition: width 180ms ease; }
+    .info-desc { font-style: italic; color: #c6bdd8; line-height: 1.4; border-left: 2px solid #5f4f80; padding-left: 8px; }
+    .passive-list, .echo-list { display: grid; gap: 5px; font-size: 13px; margin: 8px 0; color: #cabfdf; }
+    .instability {
+      margin-top: 4px; height: 7px; background: #2c1a1a; border-radius: 999px; border: 1px solid #542828;
+      overflow: hidden;
+    }
+    .instability-fill { height: 100%; background: linear-gradient(90deg, #4f1111, #c23232); transition: width 300ms linear; }
+    .instability-fill.critical { animation: dangerFlash 900ms linear infinite; }
+    .toasts { position: fixed; top: 16px; right: 16px; display: grid; gap: 8px; z-index: 100; }
+    .toast { min-width: 260px; max-width: 380px; padding: 10px 12px; border-radius: 10px; border: 1px solid #4f426d; background: #271f39; box-shadow: var(--shadow); animation: slideIn 220ms ease; }
+    .toast.info { border-left: 4px solid var(--info); }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.warning { border-left: 4px solid var(--warning); }
+    .toast.danger { border-left: 4px solid var(--danger); }
+    .modal-root {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(8, 5, 12, 0.68); z-index: 200;
+    }
+    .modal-root.show { display: flex; }
+    .modal {
+      width: min(580px, 92vw);
+      background: linear-gradient(150deg, #1b1729, #241d35);
+      border: 1px solid #554475;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: grid; gap: 12px;
+    }
+    .win-overlay {
+      position: fixed; inset: 0; z-index: 300; display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.95); text-align: center; padding: 24px;
+    }
+    .win-overlay.show { display: flex; animation: fadeIn 1s ease; }
+    .win-sequence { display: grid; gap: 16px; max-width: 760px; }
+    .win-line { font-size: clamp(22px, 2.2vw, 36px); opacity: 0; transition: opacity 700ms ease; }
+    .win-line.visible { opacity: 1; }
+    .win-panel {
+      margin-top: 10px; border: 1px solid #655392; border-radius: 12px; padding: 12px; background: #130f1f;
+      display: none; text-align: left;
+    }
+    .win-panel.show { display: grid; gap: 8px; }
+    .win-log { max-height: 180px; overflow: auto; border: 1px solid #3d3159; border-radius: 8px; padding: 8px; background: #0f0b18; }
+    .flash-layer {
+      position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 290;
+      background: radial-gradient(circle, rgba(255,255,255,0.28), rgba(0,0,0,0));
+    }
+    .flash-layer.show { animation: flash 900ms ease; }
+    .particles { position: fixed; inset: 0; pointer-events: none; z-index: 291; overflow: hidden; }
+    .particle {
+      position: absolute; width: 6px; height: 6px; border-radius: 50%;
+      background: #e9d2a1; animation: burst 1.2s ease forwards;
+    }
+    .discovery-pulse { animation: pulseNew 1.2s ease; }
+    .shake { animation: shake 380ms linear; }
+    .mobile-only { display: none; }
+    .tooltip { color: var(--muted); font-size: 12px; }
+    .polarity-bar-container {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .polarity-track {
+      flex: 1;
+      height: 4px;
+      background: #2a2a3a;
+      border-radius: 2px;
+      position: relative;
+      overflow: visible;
+    }
+    .polarity-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+    .polarity-center-mark {
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      width: 1px;
+      height: 8px;
+      background: #444;
+      transform: translateX(-50%);
+    }
+    .polarity-label {
+      font-size: 9px;
+      color: #8a9baa;
+      white-space: nowrap;
+      font-family: Georgia, "Times New Roman", serif;
+      letter-spacing: 0.02em;
+    }
+    .highway-yang { box-shadow: 0 0 0 1px #c9893a22 inset; }
+    .highway-yin { box-shadow: 0 0 0 1px #4a3b7a22 inset; }
+    .highway-yang:hover { box-shadow: 0 0 0 1px #c9893a66 inset; }
+    .highway-yin:hover { box-shadow: 0 0 0 1px #9b85d466 inset; }
+    .compass-widget {
+      padding: 12px;
+      background: #13101e;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    .compass-header {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8a9baa;
+      margin-bottom: 10px;
+    }
+    .compass-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .compass-label {
+      font-size: 10px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .yang-label { color: #c9893a; }
+    .yin-label { color: #9b85d4; }
+    .compass-track {
+      flex: 1;
+      height: 8px;
+      display: flex;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .compass-yang-fill {
+      background: linear-gradient(to right, #c9893a, #f5c87a);
+      transition: width 0.5s ease;
+    }
+    .compass-yin-fill {
+      background: linear-gradient(to right, #9b85d4, #4a3b7a);
+      transition: width 0.5s ease;
+    }
+    .compass-counts {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 10px;
+    }
+    .yang-count { color: #c9893a; }
+    .yin-count { color: #9b85d4; }
+    .balance-text { color: #8a9baa; font-style: italic; }
+    .harmony-microcopy {
+      font-size: 11px;
+      color: #9c93b4;
+      margin: 6px 0 8px;
+      line-height: 1.5;
+    }
+    .harmony-details {
+      margin: 6px 0 10px;
+      font-size: 12px;
+      color: #c8bfdc;
+    }
+    .harmony-details summary {
+      cursor: pointer;
+      color: #b7abd5;
+      margin-bottom: 6px;
+    }
+    .library-list {
+      max-height: 380px;
+      overflow: auto;
+      border: 1px solid #3f3260;
+      border-radius: 8px;
+      padding: 8px;
+      background: #140f20;
+      display: grid;
+      gap: 6px;
+    }
+    .library-item {
+      border: 1px solid #3f3260;
+      border-radius: 8px;
+      padding: 8px;
+      background: #1b1529;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 280;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7, 5, 12, 0.78);
+      padding: 16px;
+    }
+    .modal-box {
+      background: linear-gradient(160deg, #191428, #241b36);
+      border: 1px solid #54407a;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+      width: min(520px, 92vw);
+    }
+    .btn-primary {
+      background: linear-gradient(120deg, #3b2f59, #6f4f3c);
+      border-color: #8f7eb8;
+      padding: 9px 14px;
+      border-radius: 8px;
+      color: #ece5ff;
+      cursor: pointer;
+    }
+    .great-divergence-modal .modal-box {
+      max-width: 480px;
+      text-align: center;
+    }
+    .divergence-symbol {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+    .divergence-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      color: #f5c87a;
+      margin-bottom: 8px;
+    }
+    .divergence-body {
+      color: #8a9baa;
+      font-size: 14px;
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+    .divergence-paths {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .path-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 16px 12px;
+      border-radius: 8px;
+    }
+    .yang-path {
+      background: linear-gradient(135deg, #2a1a00, #3a2a00);
+      border: 1px solid #c9893a44;
+    }
+    .yin-path {
+      background: linear-gradient(135deg, #1a0a3a, #2a1a5a);
+      border: 1px solid #9b85d444;
+    }
+    .path-glyph { font-size: 24px; }
+    .path-name {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .yang-path .path-name { color: #f5c87a; }
+    .yin-path .path-name { color: #9b85d4; }
+    .path-desc {
+      font-size: 11px;
+      color: #8a9baa;
+    }
+    .path-divider {
+      font-size: 20px;
+      color: #8a9baa;
+      flex-shrink: 0;
+    }
+    .divergence-footer {
+      font-size: 12px;
+      color: #8a9baa;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .tutorial-tooltip {
+      pointer-events: auto;
+      max-width: 260px;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      animation: tooltip-in 0.25s ease forwards;
+    }
+    @keyframes tooltip-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .tooltip-inner {
+      background: #1e1a2e;
+      border: 1px solid #3a2a6a;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .tooltip-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 13px;
+      color: #f5c87a;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .tooltip-body {
+      font-size: 12px;
+      color: #c0b8d0;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .tooltip-dismiss {
+      font-size: 10px;
+      color: #9b85d4;
+      cursor: pointer;
+      text-align: right;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .tooltip-dismiss:hover { color: #f5c87a; }
+    .forge-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 8px;
+      opacity: 0.35;
+      min-height: 220px;
+    }
+    .forge-lock-glyph {
+      font-size: 48px;
+      color: #8a9baa;
+    }
+    .forge-lock-text {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 16px;
+      color: #8a9baa;
+    }
+    .forge-lock-sub {
+      font-size: 12px;
+      color: #4a4a5a;
+    }
+    .narrative-banner {
+      background: linear-gradient(135deg, #13101e, #1e1728);
+      border: 1px solid #2a1a4a;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      animation: banner-in 0.5s ease forwards;
+    }
+    @keyframes banner-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .banner-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 13px;
+      color: #f5c87a;
+      margin-bottom: 6px;
+      font-style: italic;
+    }
+    .banner-body {
+      font-size: 12px;
+      color: #8a9baa;
+      line-height: 1.6;
+    }
+    .panel-reveal {
+      animation: panel-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes panel-reveal {
+      from { opacity: 0; transform: translateX(20px) scale(0.97); filter: brightness(0.5); }
+      to { opacity: 1; transform: translateX(0) scale(1); filter: brightness(1); }
+    }
+    .nudge-ring { position: relative; }
+    .nudge-ring::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+      border-radius: inherit;
+      border: 2px solid #f5c87a;
+      animation: nudge-pulse 1.5s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @keyframes nudge-pulse {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 0.2; transform: scale(1.06); }
+    }
+    .tutorial-complete-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 14px;
+      background: linear-gradient(90deg, #1a0a3a, #2a1a00, #1a0a3a);
+      border-bottom: 1px solid #4a3b7a44;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 14px;
+      color: #f5c87a;
+      transition: opacity 0.4s ease;
+      animation: banner-in 0.4s ease forwards;
+    }
+    .complete-glyph { font-size: 20px; }
+    @media (max-width: 899px) {
+      .screen { grid-template-columns: 1fr; }
+      .panel { min-height: auto; }
+      .mobile-tabs { display: flex; }
+      .panel.mobile-hidden { display: none; }
+      .mobile-only { display: inline-block; }
+      .divergence-paths { flex-direction: column; }
+      .path-divider { transform: rotate(90deg); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spinSlow { to { transform: rotate(360deg); } }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pulseNew { 0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(245,200,122,0.6); } 100% { transform: scale(1); box-shadow: 0 0 0 14px rgba(245,200,122,0); } }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 50% { transform: translateX(6px); } 75% { transform: translateX(-4px); } }
+    @keyframes dangerFlash { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.55); } }
+    @keyframes flash { 0% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 0; } }
+    @keyframes burst {
+      from { transform: translate(0, 0) scale(1); opacity: 1; }
+      to { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="title-wrap">
+        <div id="baguaHeader" class="bagua" aria-hidden="true"></div>
+        <div>
+          <div class="serif" style="font-size:18px;">Dao Synthesis</div>
+          <div style="font-size:12px;color:var(--muted);">Unite Creation and Oblivion</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="libraryBtn" class="library-btn">Library</button>
+        <button id="resetGameBtn" class="reset-btn">Reset Game</button>
+        <div class="chip" id="saveStatus">Unsaved</div>
+      </div>
+    </header>
+
+    <div class="mobile-tabs" id="mobileTabs">
+      <button data-tab="inventory" class="active">Inventory</button>
+      <button data-tab="forge">Forge</button>
+      <button data-tab="info">Info</button>
+    </div>
+
+    <main class="screen">
+      <section class="panel" id="inventory-panel">
+        <div class="panel-header">
+          <div>
+            <div class="serif" style="font-size:18px;">Cultivator</div>
+            <div class="stats">
+              <span class="chip" id="player-rank-badge">Rank 1</span>
+              <span class="chip" id="cp-counter">CP 0</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="harmony-bars" id="three-harmonies">
+            <div class="bar-row"><span>Heaven</span><div class="bar"><div id="barHeaven" class="bar-fill" style="background:#8a9baa;"></div></div><span id="countHeaven">0</span></div>
+            <div class="bar-row"><span>Earth</span><div class="bar"><div id="barEarth" class="bar-fill" style="background:#4a6b4a;"></div></div><span id="countEarth">0</span></div>
+            <div class="bar-row"><span>Human</span><div class="bar"><div id="barHuman" class="bar-fill" style="background:#7a5c30;"></div></div><span id="countHuman">0</span></div>
+          </div>
+          <div id="harmonyMicrocopy" class="harmony-microcopy"></div>
+          <details id="harmonyDetails" class="harmony-details"></details>
+          <div class="filters" id="inventory-filters"></div>
+          <div class="dao-grid" id="inventoryGrid"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="forge-panel">
+        <div class="panel-header">
+          <div class="serif" style="font-size:18px;">Forge</div>
+          <div class="tooltip" id="forgeReason">Select two Daos</div>
+        </div>
+        <div class="panel-body">
+          <div class="forge-slots">
+            <div class="slot" id="slotA"></div>
+            <span class="resonance-pill res-neutral" id="resonance-indicator">Neutral</span>
+            <div class="slot" id="slotB"></div>
+          </div>
+          <div class="forge-actions">
+            <button id="forgeBtn" class="forge-btn">Forge</button>
+            <button id="hintBtn" class="hint-btn">Hint (-20 CP)</button>
+            <button id="shareBtn">Share Discovery</button>
+            <button id="importBtn">Import Code</button>
+            <span class="chip" id="forgeCost">Cost: 0 CP</span>
+            <span id="forgeSpinner" class="spinner"></span>
+          </div>
+          <div class="feed" id="recentFeed"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="info-panel">
+        <div class="panel-header">
+          <div class="serif" style="font-size:18px;">Info</div>
+        </div>
+        <div class="panel-body" id="infoPanelBody"></div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+  <div class="flash-layer" id="flashLayer"></div>
+  <div class="particles" id="particles"></div>
+  <div class="modal-root" id="modalRoot"></div>
+
+  <div class="win-overlay" id="winOverlay">
+    <div class="win-sequence">
+      <div class="win-line serif" id="winLine1">In the beginning, there was neither creation nor oblivion.</div>
+      <div class="win-line serif" id="winLine2">Then the cultivator spoke both names at once.</div>
+      <div class="win-line serif" id="winLine3">The ten thousand things were born.</div>
+      <div class="win-panel" id="winPanel"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      // === CONSTANTS ===
+      const SAVE_KEY = "dao_synthesis_save";
+      const BACKEND_URL = "https://your-backend.example";
+      const BACKEND_GENERATE_TOKEN = "";
+      const VERSION = 4;
+      const ONE_HOUR = 60 * 60 * 1000;
+      const ONE_DAY = 24 * ONE_HOUR;
+      const DECAY_TICK_MS = 5000;
+      const QUOTES = [
+        "The Dao that can be spoken is not the eternal Dao.",
+        "Returning is the motion of the Dao.",
+        "Great perfection seems incomplete, yet never wears out.",
+        "He who knows others is wise; he who knows himself is enlightened.",
+        "Nature does not hurry, yet everything is accomplished."
+      ];
+      const HARMONY_ICON = { Heaven: "☯", Earth: "⛰", Human: "人" };
+      const AFFINITY_COLOR = { Yang: "#f0bf6f", Yin: "#8f79c8", Neutral: "#8a9baa", Paradox: "#8a2a2a" };
+      const FILTERS = [
+        { id: "all", label: "All" },
+        { id: "favorites", label: "Favorites" },
+        { id: "t1", label: "T1" },
+        { id: "t2", label: "T2" },
+        { id: "t3", label: "T3" },
+        { id: "t4", label: "T4" },
+        { id: "t5", label: "T5" },
+        { id: "t6", label: "T6" },
+        { id: "t7", label: "T7" },
+        { id: "t8", label: "T8" },
+        { id: "t9", label: "T9" },
+        { id: "heaven", label: "Heaven" },
+        { id: "earth", label: "Earth" },
+        { id: "human", label: "Human" },
+        { id: "paradox", label: "Paradox" }
+      ];
+      const YANG_HIGHWAY = new Set(["Fire", "Thunder", "Starfire", "Light", "Blood", "Life"]);
+      const YIN_HIGHWAY = new Set(["Water", "Void", "Shadow", "Death", "Silence", "Mist"]);
+      const STAGES = {
+        0: { label: "The Uncarved Block", unlocks: "inventory_two_seeds", condition: null },
+        1: { label: "Ten Thousand Seeds", unlocks: "full_inventory", condition: (s) => !!s.tutorialActions?.firstCardClick },
+        2: { label: "The First Combination", unlocks: "forge_panel", condition: (s) => !!s.tutorialActions?.firstCardClick },
+        3: { label: "Comprehension Awakens", unlocks: "cp_counter", condition: (s) => s.discoveryLog.length >= 1 },
+        4: { label: "Ascending Tiers", unlocks: "tier_explanation", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier === 2) },
+        5: { label: "The Art of Sorting", unlocks: "inventory_filters", condition: (s) => s.inventory.length >= 6 },
+        6: { label: "Reading the Scroll", unlocks: "info_panel", condition: (s) => !!s.tutorialActions?.openedInfoPanel && Object.values(s.canonicalDaos).some((d) => d.tier >= 2) },
+        7: {
+          label: "Heaven, Earth, Human",
+          unlocks: "three_harmonies",
+          condition: (s) => {
+            const classes = new Set(s.inventory.map((i) => s.canonicalDaos[i.definitionName]?.harmonyClass).filter(Boolean));
+            return classes.has("Heaven") && classes.has("Earth") && classes.has("Human");
+          }
+        },
+        8: { label: "Resonance and Discord", unlocks: "resonance_indicator", condition: (s) => s.discoveryLog.length >= 2 },
+        9: { label: "The Still Mind", unlocks: "meditate_button", condition: (s) => (s.totalCpEarned || 0) >= 30 },
+        10: { label: "The Great Divergence", unlocks: "convergence_ui", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 3) },
+        11: { label: "Return to the Source", unlocks: "return_to_source", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4) },
+        12: { label: "The Full Cultivation Path", unlocks: "all", condition: (s) => s.tutorialStage >= 11 }
+      };
+      const STAGE_TOOLTIPS = {
+        1: { anchor: "#inventory-panel", title: "Your seeds are planted.", body: "These are your Tier 1 Daos — select two to begin combining.", position: "right" },
+        2: { anchor: "#forge-panel", title: "The Forge awakens.", body: "Click two Dao cards, then press Forge.", position: "left" },
+        3: { anchor: "#cp-counter", title: "Comprehension Points.", body: "Discoveries earn CP. Higher forges spend CP.", position: "bottom" },
+        4: { anchor: ".tier-badge", title: "Tiers mark power.", body: "Higher tiers demand higher rank.", position: "right" },
+        5: { anchor: "#inventory-filters", title: "Filter your collection.", body: "Use filters as your inventory grows.", position: "bottom" },
+        6: { anchor: "#info-panel", title: "The Dao reveals itself.", body: "Click any card to inspect description and lineage.", position: "left" },
+        7: { anchor: "#three-harmonies", title: "Heaven, Earth, Human.", body: "A balanced collection unlocks stronger routes.", position: "left" },
+        8: { anchor: "#resonance-indicator", title: "Resonance matters.", body: "Affinity interactions alter CP outcomes.", position: "bottom" },
+        9: { anchor: "#meditate-btn", title: "Still the mind.", body: "Meditate periodically for reliable CP income.", position: "right" },
+        10: { anchor: "#convergence-compass", title: "Two paths diverge.", body: "Track Creation and Oblivion alignment.", position: "left" },
+        11: { anchor: ".return-to-source-btn", title: "復 — Return to Source.", body: "Dissolve a high-tier Dao into a potent Seed.", position: "top" },
+        12: { anchor: "#player-rank-badge", title: "The path is open.", body: "All systems are now yours.", position: "bottom" }
+      };
+      const BASE_STATE = {
+        version: VERSION,
+        playerRank: 1,
+        comprehensionPoints: 0,
+        totalCpEarned: 0,
+        inventory: [],
+        discoveredCombinations: {},
+        canonicalDaos: {},
+        decayedDaos: [],
+        discoveryLog: [],
+        lastSave: null,
+        won: false,
+        firstTierMilestones: { 3: false, 5: false, 7: false },
+        meditateCooldownUntil: 0,
+        lastFreeForgeDay: null,
+        freeForgeCharges: 0,
+        humanDiscoveryProgress: 0,
+        favoriteDaoNames: [],
+        inventorySearch: "",
+        selectedIds: [],
+        activeFilter: "all",
+        sessionRecent: [],
+        startedAt: Date.now(),
+        lastActiveAt: Date.now(),
+        greatDivergenceShown: false,
+        tutorialStage: 0,
+        tutorialSeen: {},
+        tutorialActions: {
+          firstCardClick: false,
+          selectedTwoDaos: false,
+          openedInfoPanel: false
+        }
+      };
+      const TIER1_SEEDS = [
+        ["Fire", "Yang", "Heaven"],
+        ["Water", "Yin", "Heaven"],
+        ["Void", "Yin", "Heaven"],
+        ["Mountain", "Neutral", "Earth"],
+        ["Wind", "Yang", "Heaven"],
+        ["Thunder", "Yang", "Heaven"],
+        ["Time", "Neutral", "Heaven"],
+        ["Life", "Yang", "Earth"],
+        ["Death", "Yin", "Earth"],
+        ["Chaos", "Paradox", "Heaven"],
+        ["Order", "Neutral", "Human"],
+        ["Stillness", "Yin", "Human"],
+        ["Shadow", "Yin", "Earth"],
+        ["Light", "Yang", "Heaven"],
+        ["Stone", "Neutral", "Earth"],
+        ["Dream", "Neutral", "Human"],
+        ["Blood", "Yang", "Human"],
+        ["Mist", "Yin", "Earth"],
+        ["Starfire", "Yang", "Heaven"],
+        ["Silence", "Yin", "Human"]
+      ];
+
+      // === STATE ===
+      let state = null;
+      let backendConfiguredToastShown = false;
+      let decayInterval = null;
+      let quoteIndex = 0;
+      let forgeBusy = false;
+      let baguaBoostTimeout = null;
+      let eventsBound = false;
+      let tooltipActive = false;
+      const tooltipQueue = [];
+      let openingSequenceRan = false;
+      let starterRevealCount = 2;
+      let showNarrative = false;
+      let lastHeavenToastKey = "";
+      let lastEarthToastCount = -1;
+
+      // === PERSISTENCE ===
+      function makeId() {
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+        return "id-" + Math.random().toString(36).slice(2, 11);
+      }
+      function pairKey(a, b) { return [a, b].sort().join("+"); }
+      function clone(v) { return JSON.parse(JSON.stringify(v)); }
+      function now() { return Date.now(); }
+      function fmtTs(ts) { return new Date(ts).toLocaleString(); }
+      function saveState() {
+        state.lastSave = now();
+        state.lastActiveAt = now();
+        localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        document.getElementById("saveStatus").textContent = "Saved " + new Date(state.lastSave).toLocaleTimeString();
+      }
+      function concreteSeedDescription(name) {
+        const map = {
+          Fire: "A hearth flame that licks dry wood and warms cold hands.",
+          Water: "A river current that carves stone and carries fallen leaves.",
+          Void: "An empty cave where sound fades and light cannot linger.",
+          Mountain: "A granite ridge rooted deep beneath soil and snow.",
+          Wind: "A mountain gust bending grass and rattling cedar branches.",
+          Thunder: "A storm crack that shakes windows and startles birds.",
+          Time: "A sundial shadow creeping across worn courtyard tiles.",
+          Life: "A green shoot splitting soil after spring rain.",
+          Death: "A quiet grave mound wrapped in autumn reeds.",
+          Chaos: "A shattered kiln where sparks leap in every direction.",
+          Order: "A mason's line stretched straight across fresh stone.",
+          Stillness: "A frozen pond unbroken at dawn.",
+          Shadow: "A lantern cast against an alley wall at dusk.",
+          Light: "A morning beam through paper screens.",
+          Stone: "A river pebble smoothed by countless seasons.",
+          Dream: "A sleeping village wrapped in pale moon haze.",
+          Blood: "A heartbeat thrum in the wrist before battle.",
+          Mist: "A low valley fog swallowing distant pines.",
+          Starfire: "A meteor ember streaking over black sky.",
+          Silence: "A temple hall before the first bell."
+        };
+        return map[name] || `${name} appears first as a tangible force of the mortal world.`;
+      }
+      function stageUnlocked(requiredStage) {
+        return (state.tutorialStage || 0) >= requiredStage;
+      }
+      function removeAllNudges() {
+        document.querySelectorAll(".nudge-ring").forEach((el) => el.classList.remove("nudge-ring"));
+      }
+      function showNudge(selector) {
+        removeAllNudges();
+        const el = document.querySelector(selector);
+        if (el) el.classList.add("nudge-ring");
+      }
+      function showStageUnlockTooltip(stage) {
+        const config = STAGE_TOOLTIPS[stage];
+        if (!config) return;
+        if (state.tutorialSeen && state.tutorialSeen[stage]) return;
+        tooltipQueue.push({ stage, config });
+        processTooltipQueue();
+      }
+      function processTooltipQueue() {
+        if (tooltipActive || tooltipQueue.length === 0) return;
+        const next = tooltipQueue.shift();
+        tooltipActive = true;
+        const anchor = document.querySelector(next.config.anchor);
+        if (!anchor) {
+          tooltipActive = false;
+          setTimeout(processTooltipQueue, 500);
+          return;
+        }
+        const tip = document.createElement("div");
+        tip.className = `tutorial-tooltip tooltip-${next.config.position}`;
+        tip.innerHTML = `
+          <div class="tooltip-inner">
+            <div class="tooltip-title">${next.config.title}</div>
+            <div class="tooltip-body">${next.config.body}</div>
+            <div class="tooltip-dismiss">Got it ✕</div>
+          </div>
+          <div class="tooltip-arrow"></div>`;
+        document.body.appendChild(tip);
+        positionTooltipRelativeTo(tip, anchor, next.config.position);
+        const dismissBtn = tip.querySelector(".tooltip-dismiss");
+        if (dismissBtn) dismissBtn.onclick = () => dismissTooltip(dismissBtn);
+        const timer = setTimeout(() => dismissTooltip(dismissBtn || tip), 6000);
+        tip._autoDismissTimer = timer;
+        state.tutorialSeen[next.stage] = true;
+        saveState();
+      }
+      function dismissTooltip(el) {
+        const tip = el && el.closest ? el.closest(".tutorial-tooltip") : null;
+        if (!tip) return;
+        clearTimeout(tip._autoDismissTimer);
+        tip.style.opacity = "0";
+        tip.style.transform += " translateY(-4px)";
+        setTimeout(() => {
+          tip.remove();
+          tooltipActive = false;
+          checkTutorialAdvancement();
+          setTimeout(processTooltipQueue, 500);
+        }, 250);
+      }
+      function positionTooltipRelativeTo(tip, anchor, position) {
+        const rect = anchor.getBoundingClientRect();
+        tip.style.position = "fixed";
+        tip.style.zIndex = "9999";
+        requestAnimationFrame(() => {
+          const tRect = tip.getBoundingClientRect();
+          if (position === "right") {
+            tip.style.left = (rect.right + 12) + "px";
+            tip.style.top = (rect.top + rect.height / 2 - tRect.height / 2) + "px";
+          } else if (position === "left") {
+            tip.style.left = (rect.left - tRect.width - 12) + "px";
+            tip.style.top = (rect.top + rect.height / 2 - tRect.height / 2) + "px";
+          } else if (position === "bottom") {
+            tip.style.left = (rect.left + rect.width / 2 - tRect.width / 2) + "px";
+            tip.style.top = (rect.bottom + 12) + "px";
+          } else {
+            tip.style.left = (rect.left + rect.width / 2 - tRect.width / 2) + "px";
+            tip.style.top = (rect.top - tRect.height - 12) + "px";
+          }
+          const finalRect = tip.getBoundingClientRect();
+          if (finalRect.left < 8) tip.style.left = "8px";
+          if (finalRect.right > window.innerWidth - 8) tip.style.left = (window.innerWidth - tRect.width - 8) + "px";
+          if (finalRect.top < 8) tip.style.top = "8px";
+        });
+      }
+      function showTutorialCompleteBanner() {
+        const banner = document.createElement("div");
+        banner.className = "tutorial-complete-banner";
+        banner.innerHTML = `<span class="complete-glyph">☯</span><span class="complete-text">All paths revealed. The Ninth Tier awaits.</span>`;
+        document.body.prepend(banner);
+        setTimeout(() => {
+          banner.style.opacity = "0";
+          setTimeout(() => banner.remove(), 400);
+        }, 4000);
+      }
+      function revealForgePanel() {
+        const panel = document.getElementById("forge-panel");
+        if (!panel) return;
+        panel.classList.add("panel-reveal");
+        setTimeout(() => panel.classList.remove("panel-reveal"), 700);
+      }
+      function animateCpReveal(targetValue) {
+        const counter = document.getElementById("cp-counter");
+        if (!counter) return;
+        let current = 0;
+        const step = Math.max(1, Math.ceil(targetValue / 20));
+        const interval = setInterval(() => {
+          current = Math.min(current + step, targetValue);
+          counter.textContent = current + " CP";
+          if (current >= targetValue) clearInterval(interval);
+        }, 40);
+      }
+      function checkTutorialAdvancement() {
+        let currentStage = state.tutorialStage || 0;
+        if (currentStage >= 12) return;
+        while (currentStage < 12) {
+          const nextStage = currentStage + 1;
+          const nextDef = STAGES[nextStage];
+          if (!nextDef || !nextDef.condition) break;
+          if (!nextDef.condition(state)) break;
+          advanceTutorialStage(nextStage);
+          currentStage = state.tutorialStage || 0;
+        }
+      }
+      function advanceTutorialStage(newStage) {
+        if (newStage <= (state.tutorialStage || 0)) return;
+        state.tutorialStage = newStage;
+        saveState();
+        rerenderUI();
+        showStageUnlockTooltip(newStage);
+        if (newStage === 2) revealForgePanel();
+        if (newStage === 3) animateCpReveal(Math.floor(state.comprehensionPoints));
+        if (newStage === 12) showTutorialCompleteBanner();
+        if (newStage === 1) showNudge(".dao-card:first-child");
+        if (newStage === 2) showNudge("#forgeBtn");
+        if (newStage === 3) showNudge(".dao-card:nth-child(2)");
+        if (newStage === 5) showNudge("#inventory-filters");
+        if (newStage === 6) showNudge("#info-panel");
+        if (newStage === 9) showNudge("#meditate-btn");
+      }
+      function runOpeningSequence() {
+        if (openingSequenceRan) return;
+        openingSequenceRan = true;
+        starterRevealCount = 1;
+        rerenderUI();
+        setTimeout(() => {
+          starterRevealCount = 2;
+          rerenderUI();
+        }, 400);
+        setTimeout(() => {
+          showNarrative = true;
+          rerenderUI();
+        }, 1200);
+        setTimeout(() => {
+          rerenderUI();
+        }, 3000);
+      }
+      function rerenderUI() {
+        removeAllNudges();
+        renderAll();
+      }
+      function seedDefinition(name, affinity, harmony) {
+        return {
+          name,
+          tier: 1,
+          description: concreteSeedDescription(name),
+          affinity,
+          harmonyClass: harmony,
+          parentA: null,
+          parentB: null,
+          echoPassives: [name],
+          isUnstable: affinity === "Paradox",
+          decayRate: affinity === "Paradox" ? 150000 : 0,
+          isNameless: false,
+          isReturnedSeed: false
+        };
+      }
+      function createSeedInstance(defName) {
+        const def = state.canonicalDaos[defName];
+        return {
+          id: makeId(),
+          definitionName: defName,
+          hp: def.isUnstable ? 100 : 100,
+          acquiredAt: now(),
+          isSelected: false,
+          lastDecayTick: now()
+        };
+      }
+      function bootstrapState() {
+        const fresh = clone(BASE_STATE);
+        TIER1_SEEDS.forEach(([name, affinity, harmony]) => {
+          fresh.canonicalDaos[name] = seedDefinition(name, affinity, harmony);
+        });
+        fresh.inventory = TIER1_SEEDS.map(([name]) => ({
+          id: makeId(),
+          definitionName: name,
+          hp: 100,
+          acquiredAt: now(),
+          isSelected: false,
+          lastDecayTick: now()
+        }));
+        return fresh;
+      }
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(SAVE_KEY);
+          if (!raw) return bootstrapState();
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") throw new Error("invalid save");
+          if (parsed.version === 1) {
+            parsed.version = 2;
+          }
+          if (parsed.version === 2) {
+            parsed.version = 3;
+            parsed.tutorialStage = 12;
+            parsed.tutorialSeen = {};
+          }
+          if (parsed.version === 3) {
+            parsed.version = 4;
+            if (!Array.isArray(parsed.favoriteDaoNames)) parsed.favoriteDaoNames = [];
+            if (typeof parsed.inventorySearch !== "string") parsed.inventorySearch = "";
+            if (typeof parsed.freeForgeCharges !== "number") parsed.freeForgeCharges = 0;
+            if (typeof parsed.humanDiscoveryProgress !== "number") parsed.humanDiscoveryProgress = 0;
+          }
+          if (parsed.version !== VERSION) throw new Error("version mismatch");
+          if (parsed.tutorialStage === undefined) {
+            parsed.tutorialStage = 12;
+            parsed.tutorialSeen = {};
+          }
+          if (!parsed.tutorialActions || typeof parsed.tutorialActions !== "object") {
+            parsed.tutorialActions = { firstCardClick: true, selectedTwoDaos: true, openedInfoPanel: true };
+          }
+          if (!Array.isArray(parsed.favoriteDaoNames)) parsed.favoriteDaoNames = [];
+          if (typeof parsed.inventorySearch !== "string") parsed.inventorySearch = "";
+          if (typeof parsed.freeForgeCharges !== "number") parsed.freeForgeCharges = 0;
+          if (typeof parsed.humanDiscoveryProgress !== "number") parsed.humanDiscoveryProgress = 0;
+          if (!parsed.tutorialSeen || typeof parsed.tutorialSeen !== "object") parsed.tutorialSeen = {};
+          if (parsed.activeFilter === "t3plus") parsed.activeFilter = "t3";
+          return { ...clone(BASE_STATE), ...parsed };
+        } catch (err) {
+          console.warn(err);
+          showToast("Save mismatch or corruption. A fresh cycle begins.", "warning");
+          return bootstrapState();
+        }
+      }
+
+      // === API ===
+      function backendHeaders(includeAuth) {
+        const headers = { "Content-Type": "application/json" };
+        if (includeAuth && BACKEND_GENERATE_TOKEN) {
+          headers.Authorization = `Bearer ${BACKEND_GENERATE_TOKEN}`;
+        }
+        return headers;
+      }
+      function normalizeResult(raw, targetTier, daoA, daoB) {
+        const safe = {};
+        const existing = new Set(Object.keys(state.canonicalDaos));
+        const allowedAff = ["Yin", "Yang", "Neutral", "Paradox"];
+        const allowedHar = ["Heaven", "Earth", "Human"];
+        safe.tier = targetTier;
+        safe.affinity = allowedAff.includes(raw.affinity) ? raw.affinity : "Neutral";
+        safe.harmonyClass = allowedHar.includes(raw.harmonyClass) ? raw.harmonyClass : "Heaven";
+        safe.description = String(raw.description || "The path between two truths briefly reveals itself.").slice(0, 160);
+        let candidate = String(raw.name || "").trim();
+        if (!candidate) candidate = `${daoA.name.split(" ")[0]}-${daoB.name.split(" ")[0]} Dao`;
+        if (targetTier === 9) {
+          if (!["Creation", "Oblivion"].includes(candidate)) {
+            candidate = safe.affinity === "Yang" ? "Creation" : (safe.affinity === "Yin" ? "Oblivion" : (Math.random() > 0.5 ? "Creation" : "Oblivion"));
+          }
+        } else if (!candidate.endsWith("Dao")) {
+          candidate = candidate + " Dao";
+        }
+        if (existing.has(candidate)) {
+          candidate = candidate + " " + Math.floor(100 + Math.random() * 900);
+        }
+        safe.name = candidate;
+        safe.isUnstable = safe.affinity === "Paradox";
+        const rr = Number(raw.decayRate) || 0;
+        safe.decayRate = safe.isUnstable ? Math.min(180000, Math.max(30000, rr || 90000)) : 0;
+        return safe;
+      }
+      function enforceHighTierPolarity(parsedResult, daoA, daoB, targetTier) {
+        if (targetTier >= 7 && parsedResult.affinity === "Neutral") {
+          const dominantAffinity = computeDominantAffinity(daoA, daoB);
+          if (dominantAffinity !== "Neutral") {
+            parsedResult.affinity = dominantAffinity;
+            parsedResult.isUnstable = false;
+            parsedResult.decayRate = 0;
+          }
+        }
+        return parsedResult;
+      }
+      async function callOracle(daoA, daoB, targetTier) {
+        const payload = { daoA: daoA.name, daoB: daoB.name, tier: targetTier };
+        const cacheResponse = await fetch(`${BACKEND_URL}/api/forge`, {
+          method: "POST",
+          headers: backendHeaders(false),
+          body: JSON.stringify(payload)
+        });
+        if (cacheResponse.ok) {
+          const cacheData = await cacheResponse.json();
+          const normalized = normalizeResult(cacheData.result || {}, targetTier, daoA, daoB);
+          return enforceHighTierPolarity(normalized, daoA, daoB, targetTier);
+        }
+
+        if (cacheResponse.status !== 404) {
+          throw new Error("Forge cache request failed: " + cacheResponse.status);
+        }
+
+        if (!BACKEND_GENERATE_TOKEN) {
+          throw Object.assign(new Error("Forge generation locked"), { code: 401 });
+        }
+
+        const generateResponse = await fetch(`${BACKEND_URL}/api/forge/generate`, {
+          method: "POST",
+          headers: backendHeaders(true),
+          body: JSON.stringify(payload)
+        });
+        if (generateResponse.status === 429) throw Object.assign(new Error("Rate limited"), { code: 429 });
+        if (!generateResponse.ok) throw new Error("Forge generation failed: " + generateResponse.status);
+        const generatedData = await generateResponse.json();
+        const normalized = normalizeResult(generatedData.result || {}, targetTier, daoA, daoB);
+        return enforceHighTierPolarity(normalized, daoA, daoB, targetTier);
+      }
+
+      // === GAME LOGIC ===
+      function getDef(instanceOrName) {
+        const name = typeof instanceOrName === "string" ? instanceOrName : instanceOrName.definitionName;
+        return state.canonicalDaos[name];
+      }
+      function selectedInstances() {
+        return state.selectedIds.map((id) => state.inventory.find((x) => x.id === id)).filter(Boolean);
+      }
+      function selectCard(id) {
+        const exists = state.inventory.some((x) => x.id === id);
+        if (!exists) return;
+        removeAllNudges();
+        state.tutorialActions.firstCardClick = true;
+        if (state.selectedIds.includes(id)) {
+          state.selectedIds = state.selectedIds.filter((x) => x !== id);
+        } else if (state.selectedIds.length < 2) {
+          state.selectedIds.push(id);
+        } else {
+          state.selectedIds = [state.selectedIds[1], id];
+        }
+        if (state.selectedIds.length >= 2) state.tutorialActions.selectedTwoDaos = true;
+        const [primary] = selectedInstances();
+        if (primary) {
+          const def = getDef(primary);
+          if (def && def.tier >= 2) state.tutorialActions.openedInfoPanel = true;
+        }
+        saveState();
+        checkTutorialAdvancement();
+        rerenderUI();
+      }
+      function removeInventoryId(id) {
+        state.inventory = state.inventory.filter((x) => x.id !== id);
+        state.selectedIds = state.selectedIds.filter((s) => s !== id);
+      }
+      function addInstance(defName, discoveryPulse) {
+        const instance = {
+          id: makeId(),
+          definitionName: defName,
+          hp: 100,
+          acquiredAt: now(),
+          isSelected: false,
+          lastDecayTick: now()
+        };
+        state.inventory.push(instance);
+        if (discoveryPulse) {
+          setTimeout(() => {
+            const el = document.querySelector(`[data-card-id="${instance.id}"]`);
+            if (el) el.classList.add("discovery-pulse");
+          }, 20);
+        }
+      }
+      function resonanceBonusPercent(label) {
+        if (label === "Resonance") return 0.2;
+        if (label === "Discord") return 0.1;
+        if (label === "Chaos Surge") return 0.5;
+        return 0;
+      }
+      function cpCost(daoA, daoB) {
+        const resultTier = Math.max(daoA.tier, daoB.tier) + 1;
+        let cost = (resultTier - 1) * 10;
+        if (daoA.harmonyClass === "Heaven" && daoB.harmonyClass === "Heaven") cost += 15;
+        if ((state.freeForgeCharges || 0) > 0) {
+          return { cost: 0, usedFreeCharge: true };
+        }
+        return { cost, usedFreeCharge: false };
+      }
+      function validateForge(daoA, daoB) {
+        if (!daoA || !daoB) return { ok: false, reason: "Select two Daos" };
+        const resultTier = Math.max(daoA.tier, daoB.tier) + 1;
+        if (resultTier > state.playerRank + 1) return { ok: false, reason: "Insufficient rank for this tier" };
+        const isWinAttempt = isCreationOblivionPair(daoA, daoB);
+        if (isWinAttempt) return { ok: true, reason: "Transcendent union", win: true };
+        const { cost } = cpCost(daoA, daoB);
+        if (state.comprehensionPoints < cost) return { ok: false, reason: "Insufficient CP" };
+        return { ok: true, reason: "Ready to forge", win: false, cost, resultTier };
+      }
+      function isCreationOblivionPair(daoA, daoB) {
+        const left = daoA.name === "Creation" && daoA.tier === 9 && daoA.affinity === "Yang";
+        const right = daoB.name === "Oblivion" && daoB.tier === 9 && daoB.affinity === "Yin";
+        const leftInv = daoB.name === "Creation" && daoB.tier === 9 && daoB.affinity === "Yang";
+        const rightInv = daoA.name === "Oblivion" && daoA.tier === 9 && daoA.affinity === "Yin";
+        return (left && right) || (leftInv && rightInv);
+      }
+      function awardCp(amount, note) {
+        if (!amount) return;
+        state.comprehensionPoints += amount;
+        state.totalCpEarned += amount;
+        if (note) showToast(`${note} (+${amount} CP)`, "success");
+      }
+      function consumeCp(amount) {
+        state.comprehensionPoints = Math.max(0, state.comprehensionPoints - amount);
+      }
+      function buildEchoes(daoA, daoB) {
+        const merged = [...(daoA.echoPassives || []), ...(daoB.echoPassives || []), daoA.name, daoB.name];
+        return Array.from(new Set(merged));
+      }
+      function computeDominantAffinity(daoA, daoB) {
+        const scoreAffinity = (name) => {
+          const def = state.canonicalDaos[name];
+          if (!def) return 0;
+          if (def.affinity === "Yang") return 1;
+          if (def.affinity === "Yin") return -1;
+          return 0;
+        };
+        const allEchoes = [
+          ...(daoA.echoPassives || []),
+          ...(daoB.echoPassives || []),
+          daoA.name,
+          daoB.name
+        ];
+        const score = allEchoes.reduce((sum, name) => sum + scoreAffinity(name), 0);
+        if (score >= 2) return "Yang";
+        if (score <= -2) return "Yin";
+        return "Neutral";
+      }
+      function polarityScore(def) {
+        const echos = def.echoPassives || [];
+        return echos.reduce((sum, name) => {
+          const ancestor = state.canonicalDaos[name];
+          if (!ancestor) return sum;
+          if (ancestor.affinity === "Yang") return sum + 1;
+          if (ancestor.affinity === "Yin") return sum - 1;
+          return sum;
+        }, 0);
+      }
+      function applyMilestoneBonus(tier) {
+        if (tier === 3 && !state.firstTierMilestones[3]) {
+          state.firstTierMilestones[3] = true; awardCp(20, "Tier 3 insight");
+        }
+        if (tier === 5 && !state.firstTierMilestones[5]) {
+          state.firstTierMilestones[5] = true; awardCp(50, "Tier 5 breakthrough");
+        }
+        if (tier === 7 && !state.firstTierMilestones[7]) {
+          state.firstTierMilestones[7] = true; awardCp(100, "Tier 7 revelation");
+        }
+      }
+      function ensureRankUp() {
+        let changed = false;
+        while (state.playerRank < 9) {
+          const target = state.playerRank + 1;
+          const has = state.inventory.some((inst) => getDef(inst).tier >= target);
+          if (!has) break;
+          if (target === 9 && !canAdvanceToRank9()) {
+            showToast(
+              "To transcend to Rank 9, hold both a T8 Yang Dao and a T8 Yin Dao.",
+              "warning"
+            );
+            break;
+          }
+          state.playerRank += 1;
+          changed = true;
+          showRankModal(`You have stepped into Rank ${state.playerRank}.`);
+        }
+        return changed;
+      }
+      function canAdvanceToRank9() {
+        const t8Instances = state.inventory.filter((instance) => {
+          const def = state.canonicalDaos[instance.definitionName];
+          return def && def.tier === 8;
+        });
+        const hasYangT8 = t8Instances.some((instance) => {
+          const def = state.canonicalDaos[instance.definitionName];
+          return def && def.affinity === "Yang";
+        });
+        const hasYinT8 = t8Instances.some((instance) => {
+          const def = state.canonicalDaos[instance.definitionName];
+          return def && def.affinity === "Yin";
+        });
+        return hasYangT8 && hasYinT8;
+      }
+      function checkGreatDivergence(resultDef) {
+        if (state.greatDivergenceShown) return;
+        if (!resultDef || resultDef.tier !== 5) return;
+        const t5Count = Object.values(state.canonicalDaos).filter((d) => d && d.tier === 5).length;
+        if (t5Count !== 1) return;
+        state.greatDivergenceShown = true;
+        saveState();
+        showGreatDivergenceModal();
+      }
+      async function forgeSelected() {
+        if (forgeBusy) return;
+        const [instA, instB] = selectedInstances();
+        if (!instA || !instB) return;
+        const daoA = getDef(instA);
+        const daoB = getDef(instB);
+        const validation = validateForge(daoA, daoB);
+        if (!validation.ok) {
+          shakeForge();
+          showToast(validation.reason, "warning");
+          return;
+        }
+        if (validation.win) {
+          removeInventoryId(instA.id);
+          removeInventoryId(instB.id);
+          triggerWin();
+          return;
+        }
+
+        forgeBusy = true;
+        setForgeBusy(true);
+        pulseBagua(3500);
+        const key = pairKey(daoA.name, daoB.name);
+        const resonance = resonanceScore(daoA, daoB);
+        const targetTier = validation.resultTier;
+        let resultDef;
+        try {
+          if (daoA.name === "Chaos" && daoB.name === "Silence" || daoA.name === "Silence" && daoB.name === "Chaos") {
+            resultDef = {
+              name: "   ",
+              tier: 1,
+              description: "The Dao that can be named is not the eternal Dao.",
+              affinity: "Paradox",
+              harmonyClass: "Heaven",
+              parentA: daoA.name,
+              parentB: daoB.name,
+              echoPassives: buildEchoes(daoA, daoB),
+              isUnstable: false,
+              decayRate: 0,
+              isNameless: true,
+              isReturnedSeed: false
+            };
+            state.discoveredCombinations[key] = resultDef;
+            state.canonicalDaos[resultDef.name] = resultDef;
+          } else if (state.discoveredCombinations[key]) {
+            resultDef = state.discoveredCombinations[key];
+          } else {
+            const oracle = await callOracle(daoA, daoB, targetTier);
+            resultDef = {
+              ...oracle,
+              parentA: daoA.name,
+              parentB: daoB.name,
+              echoPassives: buildEchoes(daoA, daoB),
+              isNameless: false,
+              isReturnedSeed: false
+            };
+            state.discoveredCombinations[key] = resultDef;
+            state.canonicalDaos[resultDef.name] = resultDef;
+            awardCp(5, "New discovery");
+            if (resultDef.harmonyClass === "Human") {
+              state.humanDiscoveryProgress = (state.humanDiscoveryProgress || 0) + 1;
+              if (state.humanDiscoveryProgress >= 3) {
+                state.humanDiscoveryProgress -= 3;
+                state.freeForgeCharges = (state.freeForgeCharges || 0) + 1;
+                showToast("Human Harmony grants +1 free forge charge.", "success");
+              }
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          if (err.code === 429) {
+            showToast("The oracle is constrained by heaven. Retry shortly.", "warning");
+          } else if (err.code === 401) {
+            showToast("This combination is unknown on the server and generation is locked.", "warning");
+          } else {
+            showToast("The oracle is silent.", "danger");
+          }
+          forgeBusy = false;
+          setForgeBusy(false);
+          return;
+        }
+
+        consumeCp(validation.cost);
+        if (validation.usedFreeCharge) {
+          state.freeForgeCharges = Math.max(0, (state.freeForgeCharges || 0) - 1);
+          showToast("Used one Human free forge charge.", "info");
+        }
+        const bonus = Math.floor(validation.cost * resonanceBonusPercent(resonance));
+        awardCp(bonus, resonance + " bonus");
+        removeInventoryId(instA.id);
+        removeInventoryId(instB.id);
+        if (!state.canonicalDaos[resultDef.name]) state.canonicalDaos[resultDef.name] = resultDef;
+        addInstance(resultDef.name, true);
+        checkGreatDivergence(resultDef);
+        applyMilestoneBonus(resultDef.tier);
+        state.discoveryLog.unshift({
+          timestamp: now(),
+          parentA: daoA.name,
+          parentB: daoB.name,
+          result: resultDef.name
+        });
+        state.sessionRecent.unshift(`${daoA.name} + ${daoB.name} → ${displayName(resultDef)}`);
+        state.sessionRecent = state.sessionRecent.slice(0, 5);
+        ensureRankUp();
+        playForgeSound();
+        saveState();
+        checkTutorialAdvancement();
+        rerenderUI();
+        forgeBusy = false;
+        setForgeBusy(false);
+      }
+
+      // === RESONANCE ===
+      function resonanceScore(daoA, daoB) {
+        if (daoA.affinity === "Paradox" || daoB.affinity === "Paradox") return "Chaos Surge";
+        if (daoA.affinity === daoB.affinity) return "Resonance";
+        if (
+          (daoA.affinity === "Yin" && daoB.affinity === "Yang") ||
+          (daoA.affinity === "Yang" && daoB.affinity === "Yin")
+        ) return "Discord";
+        return "Neutral";
+      }
+
+      // === DECAY ===
+      function earthMitigationMultiplier() {
+        const earthCount = harmonyCounts().Earth;
+        return Math.max(0.2, 1 - earthCount * 0.05);
+      }
+      function processDecayTick() {
+        const t = now();
+        const mult = earthMitigationMultiplier();
+        const toRemove = [];
+        state.inventory.forEach((inst) => {
+          const def = getDef(inst);
+          if (!def || !def.isUnstable) return;
+          if (!inst.lastDecayTick) inst.lastDecayTick = t;
+          const elapsed = t - inst.lastDecayTick;
+          const effective = Math.max(5000, def.decayRate * mult);
+          const hpLost = elapsed / effective;
+          inst.hp = Math.max(0, inst.hp - hpLost);
+          inst.lastDecayTick = t;
+          if (inst.hp <= 0) toRemove.push({ id: inst.id, name: def.name });
+        });
+        if (toRemove.length) {
+          toRemove.forEach((d) => {
+            removeInventoryId(d.id);
+            showToast(`${displayName(state.canonicalDaos[d.name] || { name: d.name })} has collapsed into the Void.`, "danger");
+            playCollapseSound();
+          });
+          saveState();
+          checkTutorialAdvancement();
+          rerenderUI();
+        } else {
+          renderInventory();
+        }
+      }
+      function startDecayLoop() {
+        if (decayInterval) clearInterval(decayInterval);
+        decayInterval = setInterval(processDecayTick, DECAY_TICK_MS);
+      }
+
+      // === THREE HARMONIES ===
+      function harmonyCounts() {
+        const counts = { Heaven: 0, Earth: 0, Human: 0 };
+        state.inventory.forEach((inst) => {
+          const def = getDef(inst);
+          if (def && counts[def.harmonyClass] !== undefined) counts[def.harmonyClass] += 1;
+        });
+        return counts;
+      }
+
+      // === WIN CONDITION ===
+      function triggerWin() {
+        state.won = true;
+        saveState();
+        playWinSound();
+        const overlay = document.getElementById("winOverlay");
+        overlay.classList.add("show");
+        ["winLine1", "winLine2", "winLine3"].forEach((id) => document.getElementById(id).classList.remove("visible"));
+        document.getElementById("winPanel").classList.remove("show");
+        epicFlash();
+        setTimeout(() => document.getElementById("winLine1").classList.add("visible"), 200);
+        setTimeout(() => document.getElementById("winLine2").classList.add("visible"), 2200);
+        setTimeout(() => document.getElementById("winLine3").classList.add("visible"), 4200);
+        setTimeout(() => showWinPanel(), 6200);
+      }
+      function showWinPanel() {
+        const panel = document.getElementById("winPanel");
+        const timePlayedMs = now() - (state.startedAt || now());
+        const lines = state.discoveryLog.slice(0, 30).map((x) => `<div>${new Date(x.timestamp).toLocaleTimeString()} — ${x.parentA} + ${x.parentB} → ${x.result}</div>`).join("");
+        panel.innerHTML = `
+          <div class="serif" style="font-size:22px;">Cycle Complete</div>
+          <div>Total discoveries: ${Object.keys(state.discoveredCombinations).length}</div>
+          <div>Total CP earned: ${state.totalCpEarned}</div>
+          <div>Time played: ${Math.floor(timePlayedMs / 60000)} minutes</div>
+          <div class="win-log">${lines || "<div>No discoveries logged.</div>"}</div>
+          <button id="beginAgainBtn">Begin Again</button>
+        `;
+        panel.classList.add("show");
+        document.getElementById("beginAgainBtn").onclick = () => {
+          if (decayInterval) clearInterval(decayInterval);
+          localStorage.removeItem(SAVE_KEY);
+          state = bootstrapState();
+          saveState();
+          overlayReset();
+          initRuntime();
+        };
+      }
+      function overlayReset() {
+        document.getElementById("winOverlay").classList.remove("show");
+      }
+
+      // === UI RENDERING ===
+      function displayName(def) {
+        if (def && def.isNameless) return "◯";
+        if (def && def.name && def.name.trim().length === 0) return "◯";
+        return def ? def.name : "Unknown Dao";
+      }
+      function tierBadgeClass(def) {
+        if (def.tier <= 3) return "tier-low";
+        if (def.tier <= 6) return "tier-mid";
+        if (def.tier <= 8) return "tier-high";
+        if (def.name === "Creation" || def.affinity === "Yang") return "tier-t9-yang";
+        return "tier-t9-yin";
+      }
+      function cardMatchesFilter(def, filter) {
+        switch (filter) {
+          case "all": return true;
+          case "favorites": return (state.favoriteDaoNames || []).includes(def.name);
+          case "t1": return def.tier === 1;
+          case "t2": return def.tier === 2;
+          case "t3": return def.tier === 3;
+          case "t4": return def.tier === 4;
+          case "t5": return def.tier === 5;
+          case "t6": return def.tier === 6;
+          case "t7": return def.tier === 7;
+          case "t8": return def.tier === 8;
+          case "t9": return def.tier === 9;
+          case "heaven": return def.harmonyClass === "Heaven";
+          case "earth": return def.harmonyClass === "Earth";
+          case "human": return def.harmonyClass === "Human";
+          case "paradox": return def.affinity === "Paradox";
+          default: return true;
+        }
+      }
+      function renderFilters() {
+        const row = document.getElementById("inventory-filters");
+        if (!row) return;
+        if (!stageUnlocked(5)) {
+          row.classList.add("hidden");
+          row.innerHTML = "";
+          return;
+        }
+        row.classList.remove("hidden");
+        row.innerHTML = `
+          <div class="search-row"><input id="inventorySearchInput" placeholder="Filter by name..." value="${state.inventorySearch || ""}" /></div>
+          ${FILTERS.map((f) => `<button data-filter="${f.id}" class="${state.activeFilter === f.id ? "active" : ""}">${f.label}</button>`).join("")}
+        `;
+      }
+      function renderInventory() {
+        const panelBody = document.querySelector("#inventory-panel .panel-body");
+        if (panelBody) {
+          let banner = document.getElementById("narrativeBanner");
+          if (showNarrative) {
+            if (!banner) {
+              banner = document.createElement("div");
+              banner.id = "narrativeBanner";
+              banner.className = "narrative-banner";
+              panelBody.prepend(banner);
+            }
+            banner.innerHTML = `
+              <div class="banner-title">In the beginning, there were only the ten thousand unnamed things.</div>
+              <div class="banner-body">Two Daos have found their way to you. What will you forge from them?</div>
+            `;
+          } else if (banner) {
+            banner.remove();
+          }
+        }
+        const grid = document.getElementById("inventoryGrid");
+        const inv = state.inventory
+          .map((inst) => ({ inst, def: getDef(inst) }))
+          .filter((entry) => entry.def && cardMatchesFilter(entry.def, state.activeFilter))
+          .filter((entry) => {
+            const q = (state.inventorySearch || "").trim().toLowerCase();
+            if (!q) return true;
+            return entry.def.name.toLowerCase().includes(q);
+          })
+          .filter((entry) => {
+            if (!stageUnlocked(3)) return entry.def.name === "Fire" || entry.def.name === "Water";
+            return true;
+          });
+        const limited = !stageUnlocked(3) ? inv.slice(0, starterRevealCount) : inv;
+        grid.innerHTML = limited.map(({ inst, def }) => {
+          const selected = state.selectedIds.includes(inst.id) ? "selected" : "";
+          const hpPercent = Math.max(0, Math.min(100, inst.hp || 0));
+          const critical = hpPercent <= 20 ? "critical" : "";
+          const isBlank = def.isNameless ? "blank" : "";
+          const isFav = (state.favoriteDaoNames || []).includes(def.name);
+          const isHighwayYang = def.tier === 1 && YANG_HIGHWAY.has(def.name);
+          const isHighwayYin = def.tier === 1 && YIN_HIGHWAY.has(def.name);
+          const highwayClass = isHighwayYang ? "highway-yang" : (isHighwayYin ? "highway-yin" : "");
+          const cardTitle = isHighwayYang
+            ? "Creation lineage — combine within Yang to reach the Ninth Tier."
+            : isHighwayYin
+              ? "Oblivion lineage — combine within Yin to reach the Ninth Tier."
+              : (def.isNameless ? def.description : def.name);
+          let polarityHtml = "";
+          if (stageUnlocked(10) && def.tier >= 2) {
+            const score = polarityScore(def);
+            const maxScore = 10;
+            const clamped = Math.max(-maxScore, Math.min(maxScore, score));
+            const fillPercent = ((clamped + maxScore) / (maxScore * 2)) * 100;
+            const barColor = score > 1 ? "#c9893a" : score < -1 ? "#4a3b7a" : "#8a9baa";
+            const label = score > 1 ? "◐ Creation" : score < -1 ? "◑ Oblivion" : "◯ Balanced";
+            polarityHtml = `
+              <div class="polarity-bar-container" title="Polarity: ${score > 0 ? "+" : ""}${score}">
+                <div class="polarity-track">
+                  <div class="polarity-fill" style="width:${fillPercent}%;background:${barColor};"></div>
+                  <div class="polarity-center-mark"></div>
+                </div>
+                <span class="polarity-label">${label}</span>
+              </div>
+            `;
+          }
+          return `
+            <article class="dao-card ${selected} ${highwayClass}" data-card-id="${inst.id}" title="${cardTitle}">
+              <div class="dao-top">
+                <div class="dao-name ${isBlank}">${def.isNameless ? "◯" : displayName(def)}</div>
+                <span class="tier-badge ${tierBadgeClass(def)}">T${def.tier}</span>
+              </div>
+              <div class="dao-meta">
+                <span class="aff-dot" style="background:${AFFINITY_COLOR[def.affinity] || "#999"}"></span>
+                <span>${def.affinity}</span>
+                <span>${HARMONY_ICON[def.harmonyClass] || "·"} ${def.harmonyClass}</span>
+              </div>
+              ${def.isUnstable ? `<div class="instability"><div class="instability-fill ${critical}" style="width:${hpPercent}%"></div></div>` : ""}
+              ${polarityHtml}
+              <button class="fav-toggle ${isFav ? "active" : ""}" data-fav-name="${def.name}" title="${isFav ? "Unfavorite" : "Favorite"}">${isFav ? "★" : "☆"}</button>
+            </article>
+          `;
+        }).join("");
+      }
+      function renderSlotsAndForge() {
+        const forgePanel = document.getElementById("forge-panel");
+        if (!forgePanel) return;
+        const forgeBody = forgePanel.querySelector(".panel-body");
+        if (!stageUnlocked(2)) {
+          if (forgeBody) {
+            forgeBody.innerHTML = `
+              <div class="forge-placeholder">
+                <div class="forge-lock-glyph">⚷</div>
+                <p class="forge-lock-text">The Forge is sealed.</p>
+                <p class="forge-lock-sub">Contemplate your seeds first.</p>
+              </div>
+            `;
+          }
+          return;
+        }
+        if (!document.getElementById("slotA")) {
+          if (forgeBody) {
+            forgeBody.innerHTML = `
+              <div class="forge-slots">
+                <div class="slot" id="slotA"></div>
+                <span class="resonance-pill res-neutral" id="resonance-indicator">Neutral</span>
+                <div class="slot" id="slotB"></div>
+              </div>
+              <div class="forge-actions">
+                <button id="forgeBtn" class="forge-btn">Forge</button>
+                <button id="hintBtn" class="hint-btn">Hint (-20 CP)</button>
+                <button id="shareBtn">Share Discovery</button>
+                <button id="importBtn">Import Code</button>
+                <span class="chip" id="forgeCost">Cost: 0 CP</span>
+                <span id="forgeSpinner" class="spinner"></span>
+              </div>
+              <div class="feed" id="recentFeed"></div>
+            `;
+            bindEvents();
+          }
+        }
+        const [instA, instB] = selectedInstances();
+        const slotA = document.getElementById("slotA");
+        const slotB = document.getElementById("slotB");
+        function slotMarkup(inst) {
+          if (!inst) return `<div style="color:var(--muted);">Select a Dao</div>`;
+          const def = getDef(inst);
+          return `<div class="serif">${displayName(def)}</div><div class="chip">T${def.tier} ${def.affinity}</div>`;
+        }
+        slotA.innerHTML = slotMarkup(instA);
+        slotB.innerHTML = slotMarkup(instB);
+        const daoA = instA ? getDef(instA) : null;
+        const daoB = instB ? getDef(instB) : null;
+        if (daoA && daoB && daoA.harmonyClass === "Heaven" && daoB.harmonyClass === "Heaven") {
+          const key = `${daoA.name}+${daoB.name}`;
+          if (lastHeavenToastKey !== key) {
+            lastHeavenToastKey = key;
+            showToast("Heaven + Heaven forge surcharge: +15 CP.", "warning");
+          }
+        } else {
+          lastHeavenToastKey = "";
+        }
+        const label = daoA && daoB ? resonanceScore(daoA, daoB) : "Neutral";
+        const pill = document.getElementById("resonance-indicator");
+        if (pill) {
+          if (!stageUnlocked(8)) {
+            pill.classList.add("resonance-locked");
+            pill.textContent = "Locked";
+            pill.className = "resonance-pill res-neutral resonance-locked";
+          } else {
+            pill.classList.remove("resonance-locked");
+            pill.textContent = label;
+            pill.className = "resonance-pill " + (label === "Resonance" ? "res-resonance" : label === "Discord" ? "res-discord" : label === "Chaos Surge" ? "res-chaos" : "res-neutral");
+          }
+        }
+        const forgeBtn = document.getElementById("forgeBtn");
+        const reasonEl = document.getElementById("forgeReason");
+        if (daoA && daoB) {
+          const val = validateForge(daoA, daoB);
+          const costObj = cpCost(daoA, daoB);
+          document.getElementById("forgeCost").textContent = `Cost: ${val.win ? 0 : (costObj.cost)} CP`;
+          forgeBtn.disabled = !val.ok || forgeBusy;
+          reasonEl.textContent = forgeBusy ? "Consulting oracle..." : val.reason;
+        } else {
+          forgeBtn.disabled = true;
+          reasonEl.textContent = "Select two Daos";
+          document.getElementById("forgeCost").textContent = "Cost: 0 CP";
+        }
+      }
+      function renderRecentFeed() {
+        const feed = document.getElementById("recentFeed");
+        if (!feed) return;
+        if (!stageUnlocked(3)) {
+          feed.classList.add("hidden");
+          feed.innerHTML = "";
+          return;
+        }
+        feed.classList.remove("hidden");
+        if (!state.sessionRecent.length) {
+          feed.innerHTML = `<div style="color:var(--muted)">No recent forges this session.</div>`;
+          return;
+        }
+        feed.innerHTML = "<div class='serif'>Recent Discoveries</div>" + state.sessionRecent.map((x) => `<div>${x}</div>`).join("");
+      }
+      function passiveLabelFromEcho(echo) {
+        const key = echo.toLowerCase();
+        if (key.includes("fire")) return `${echo} echo — +2% CP from Yang combinations`;
+        if (key.includes("void")) return `${echo} echo — -5% instability decay rate`;
+        if (key.includes("time")) return `${echo} echo — Meditate cooldown -10min per stack`;
+        if (key.includes("water")) return `${echo} echo — +1 harmony stability`;
+        if (key.includes("life")) return `${echo} echo — +3 CP on discovery`;
+        return `${echo} echo — latent principle resonates`;
+      }
+      function ancestryTree(def) {
+        const lines = [];
+        function walk(name, depth) {
+          const d = state.canonicalDaos[name];
+          if (!d) return;
+          lines.push(`${"  ".repeat(depth)}• ${displayName(d)}`);
+          if (d.parentA) walk(d.parentA, depth + 1);
+          if (d.parentB) walk(d.parentB, depth + 1);
+        }
+        walk(def.name, 0);
+        return lines.slice(1, 40);
+      }
+      function renderInfoPanel() {
+        const body = document.getElementById("infoPanelBody");
+        if (!body) return;
+        if (!stageUnlocked(6)) {
+          body.innerHTML = `<div class="info-desc">Select a Dao to begin. The scroll remains sealed.</div>`;
+          return;
+        }
+        const [instA] = selectedInstances();
+        if (!instA) {
+          quoteIndex = (quoteIndex + 1) % QUOTES.length;
+          body.innerHTML = `
+            <div class="serif" style="font-size:22px;margin-bottom:8px;">Empty Palm, Open Heart</div>
+            <div class="info-desc">${QUOTES[quoteIndex]}</div>
+            ${stageUnlocked(9) ? `<div style="margin-top:12px;"><button id="meditate-btn">Meditate (+10 CP)</button><div class="tooltip" id="meditateCdText"></div></div>` : ""}
+            ${renderConvergenceCompass()}
+          `;
+          bindMeditateButton();
+          return;
+        }
+        const def = getDef(instA);
+        const canReturn = def.tier >= 4 && !def.isReturnedSeed;
+        const passives = (def.echoPassives || []).slice(0, 14).map((e) => `<div>${passiveLabelFromEcho(e)}</div>`).join("");
+        const ancestry = ancestryTree(def).map((l) => `<div>${l}</div>`).join("");
+        body.innerHTML = `
+          <div class="serif" style="font-size:24px;">${displayName(def)}</div>
+          <div class="stats">
+            <span class="chip">T${def.tier}</span>
+            <span class="chip">${def.affinity}</span>
+            <span class="chip">${def.harmonyClass}</span>
+          </div>
+          <div class="info-desc">${def.description}</div>
+          <details>
+            <summary>Echo ancestry</summary>
+            <div class="echo-list">${ancestry || "<div>Root Dao has no ancestors.</div>"}</div>
+          </details>
+          <div class="serif" style="margin-top:4px;">Passives</div>
+          <div class="passive-list">${passives || "<div>No echoes yet.</div>"}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${stageUnlocked(11) && canReturn ? `<button id="returnBtn" class="return-to-source-btn">Return to Source (復)</button>` : ""}
+            ${stageUnlocked(9) ? `<button id="meditate-btn">Meditate (+10 CP)</button>` : ""}
+          </div>
+          ${stageUnlocked(9) ? `<div class="tooltip" id="meditateCdText"></div>` : ""}
+          ${renderConvergenceCompass()}
+        `;
+        if (canReturn) {
+          document.getElementById("returnBtn").onclick = () => confirmReturn(instA.id);
+        }
+        bindMeditateButton();
+      }
+      function renderHarmonyWidget() {
+        const wrap = document.getElementById("three-harmonies");
+        if (wrap) wrap.classList.toggle("hidden", !stageUnlocked(7));
+        if (!stageUnlocked(7)) return;
+        const counts = harmonyCounts();
+        const total = Math.max(1, state.inventory.length);
+        document.getElementById("countHeaven").textContent = String(counts.Heaven);
+        document.getElementById("countEarth").textContent = String(counts.Earth);
+        document.getElementById("countHuman").textContent = String(counts.Human);
+        document.getElementById("barHeaven").style.width = `${(counts.Heaven / total) * 100}%`;
+        document.getElementById("barEarth").style.width = `${(counts.Earth / total) * 100}%`;
+        document.getElementById("barHuman").style.width = `${(counts.Human / total) * 100}%`;
+        if (counts.Earth !== lastEarthToastCount) {
+          if (lastEarthToastCount !== -1 && counts.Earth > 0) {
+            showToast(`Earth holdings slow Paradox decay by ${Math.min(80, counts.Earth * 5)}%.`, "info");
+          }
+          lastEarthToastCount = counts.Earth;
+        }
+        const helper = document.getElementById("harmonyMicrocopy");
+        if (helper) {
+          helper.innerHTML = `Heaven increases cost • Earth stabilizes Paradox • Human grants +1 free forge charge per 3 new Human Daos`;
+        }
+        const detail = document.getElementById("harmonyDetails");
+        if (detail) {
+          detail.innerHTML = `
+            <summary>Harmony Effects</summary>
+            <div>Heaven + Heaven: +15 CP forge cost.</div>
+            <div>Earth: each Earth Dao slows Paradox decay by 5% (up to 80%).</div>
+            <div>Human: every 3 newly discovered Human Daos grants +1 free forge charge.</div>
+            <div>Current free forge charges: ${state.freeForgeCharges || 0}</div>
+            <div>Next Human charge progress: ${state.humanDiscoveryProgress || 0}/3</div>
+          `;
+        }
+      }
+      function renderStats() {
+        const rankChip = document.getElementById("player-rank-badge");
+        const cpChip = document.getElementById("cp-counter");
+        if (!rankChip || !cpChip) return;
+        rankChip.classList.toggle("hidden", !stageUnlocked(4));
+        cpChip.classList.toggle("hidden", !stageUnlocked(3));
+        rankChip.textContent = "Rank " + state.playerRank;
+        if (state.playerRank === 8) {
+          const t8Defs = state.inventory
+            .map((instance) => state.canonicalDaos[instance.definitionName])
+            .filter((def) => def && def.tier === 8);
+          const hasYang = t8Defs.some((def) => def.affinity === "Yang");
+          const hasYin = t8Defs.some((def) => def.affinity === "Yin");
+          rankChip.title = `Rank 9 requirements:\n${hasYang ? "✓" : "✗"} T8 Yang Dao (Creation path)\n${hasYin ? "✓" : "✗"} T8 Yin Dao (Oblivion path)`;
+        } else {
+          rankChip.title = "";
+        }
+        cpChip.textContent = "CP " + Math.floor(state.comprehensionPoints);
+      }
+      function getConvergenceCompassData() {
+        const instances = state.inventory;
+        let yangCount = 0;
+        let yinCount = 0;
+        let neutralCount = 0;
+        let weightedYang = 0;
+        let weightedYin = 0;
+        instances.forEach((instance) => {
+          const def = state.canonicalDaos[instance.definitionName];
+          if (!def) return;
+          const weight = def.tier;
+          if (def.affinity === "Yang") { yangCount += 1; weightedYang += weight; }
+          else if (def.affinity === "Yin") { yinCount += 1; weightedYin += weight; }
+          else neutralCount += 1;
+        });
+        const total = weightedYang + weightedYin || 1;
+        const yangPercent = Math.round((weightedYang / total) * 100);
+        const yinPercent = 100 - yangPercent;
+        return { yangCount, yinCount, neutralCount, yangPercent, yinPercent };
+      }
+      function renderConvergenceCompass() {
+        if (!stageUnlocked(10)) return "";
+        const { yangCount, yinCount, neutralCount, yangPercent, yinPercent } = getConvergenceCompassData();
+        const balance =
+          yangPercent > 65 ? "Strongly Yang — Creation path" :
+          yangPercent < 35 ? "Strongly Yin — Oblivion path" :
+          yangPercent > 52 ? "Yang-leaning" :
+          yangPercent < 48 ? "Yin-leaning" :
+          "Balanced — both paths open";
+        return `
+          <div class="compass-widget" id="convergence-compass">
+            <div class="compass-header">Convergence Compass</div>
+            <div class="compass-bar-row">
+              <span class="compass-label yang-label">☀ Creation</span>
+              <div class="compass-track">
+                <div class="compass-yang-fill" style="width:${yangPercent}%"></div>
+                <div class="compass-yin-fill" style="width:${yinPercent}%"></div>
+              </div>
+              <span class="compass-label yin-label">Oblivion ☾</span>
+            </div>
+            <div class="compass-counts">
+              <span class="yang-count">${yangCount} Yang</span>
+              <span class="balance-text">${balance}</span>
+              <span class="yin-count">${yinCount} Yin</span>
+            </div>
+            <div class="tooltip" style="margin-top:6px;">${neutralCount} Neutral/Paradox</div>
+          </div>
+        `;
+      }
+      function renderAll() {
+        const infoPanel = document.getElementById("info-panel");
+        if (infoPanel) infoPanel.classList.toggle("mobile-hidden", false);
+        renderFilters();
+        renderStats();
+        renderHarmonyWidget();
+        renderInventory();
+        renderSlotsAndForge();
+        renderRecentFeed();
+        renderInfoPanel();
+      }
+      function toggleFavoriteDao(name) {
+        const favs = new Set(state.favoriteDaoNames || []);
+        if (favs.has(name)) favs.delete(name);
+        else favs.add(name);
+        state.favoriteDaoNames = Array.from(favs);
+        saveState();
+        rerenderUI();
+      }
+
+      // === EVENT HANDLERS ===
+      function showToast(text, type = "info") {
+        const root = document.getElementById("toasts");
+        const el = document.createElement("div");
+        el.className = `toast ${type}`;
+        el.textContent = text;
+        root.appendChild(el);
+        setTimeout(() => { el.style.opacity = "0"; }, 3500);
+        setTimeout(() => { el.remove(); }, 4200);
+      }
+      function setForgeBusy(active) {
+        document.getElementById("forgeSpinner").classList.toggle("show", active);
+      }
+      function shakeForge() {
+        const panel = document.getElementById("forge-panel");
+        panel.classList.add("shake");
+        setTimeout(() => panel.classList.remove("shake"), 420);
+      }
+      function showModal(html, options) {
+        const root = document.getElementById("modalRoot");
+        root.innerHTML = `<div class="modal">${html}</div>`;
+        root.classList.add("show");
+        if (options && options.locked) return;
+        root.onclick = (e) => {
+          if (e.target === root) closeModal();
+        };
+      }
+      function closeModal() {
+        const root = document.getElementById("modalRoot");
+        root.classList.remove("show");
+        root.innerHTML = "";
+      }
+      function showBackendConfigNotice() {
+        if (backendConfiguredToastShown) return;
+        backendConfiguredToastShown = true;
+        if (!BACKEND_URL.includes("your-backend.example")) return;
+        showToast("Set BACKEND_URL in index.html before forging new combinations.", "warning");
+      }
+      function showRankModal(text) {
+        showModal(`
+          <div class="serif" style="font-size:24px;">Realm Ascension</div>
+          <div>${text}</div>
+        `, { locked: true });
+        setTimeout(closeModal, 3000);
+      }
+      function showGreatDivergenceModal() {
+        const overlay = document.createElement("div");
+        overlay.className = "modal-overlay great-divergence-modal";
+        overlay.innerHTML = `
+          <div class="modal-box divergence-box">
+            <div class="divergence-symbol">☯</div>
+            <h2 class="divergence-title">The Great Divergence</h2>
+            <p class="divergence-body">
+              The ten thousand Daos divide.<br>
+              Two paths now reveal themselves beneath your feet:
+            </p>
+            <div class="divergence-paths">
+              <div class="path-card yang-path">
+                <span class="path-glyph">☀</span>
+                <span class="path-name">Path of Creation</span>
+                <span class="path-desc">Yang — Forge, Kindle, Engender</span>
+              </div>
+              <div class="path-divider">⟷</div>
+              <div class="path-card yin-path">
+                <span class="path-glyph">☾</span>
+                <span class="path-name">Path of Oblivion</span>
+                <span class="path-desc">Yin — Dissolve, Return, Unmake</span>
+              </div>
+            </div>
+            <p class="divergence-footer">
+              Both paths must be walked to reach the Ninth Tier.<br>
+              Watch for the polarity mark on each Dao card.
+            </p>
+            <button class="btn-primary" id="divergenceContinue">Continue Cultivation</button>
+          </div>`;
+        document.body.appendChild(overlay);
+        const close = () => overlay.remove();
+        const btn = overlay.querySelector("#divergenceContinue");
+        if (btn) btn.onclick = close;
+        overlay.onclick = (e) => {
+          if (e.target === overlay) close();
+        };
+      }
+      function resetGame() {
+        const confirmed = window.confirm("Reset your cultivation cycle? This clears current progress.");
+        if (!confirmed) return;
+        if (decayInterval) clearInterval(decayInterval);
+        localStorage.removeItem(SAVE_KEY);
+        state = bootstrapState();
+        tooltipQueue.length = 0;
+        tooltipActive = false;
+        openingSequenceRan = false;
+        showNarrative = false;
+        starterRevealCount = 2;
+        saveState();
+        overlayReset();
+        showToast("A new cycle begins.", "info");
+        initRuntime();
+      }
+      function openLibraryModal() {
+        const all = Object.entries(state.discoveredCombinations || {}).map(([key, def]) => ({ key, def }));
+        const body = `
+          <div class="serif" style="font-size:22px;">Combination Library</div>
+          <input id="librarySearchInput" placeholder="Search by result or parents..." />
+          <div class="library-list" id="libraryList"></div>
+          <div style="display:flex;justify-content:flex-end;"><button id="libraryCloseBtn">Close</button></div>
+        `;
+        showModal(body);
+        const list = document.getElementById("libraryList");
+        const search = document.getElementById("librarySearchInput");
+        const render = () => {
+          if (!list) return;
+          const q = (search && search.value ? search.value : "").trim().toLowerCase();
+          const shown = all.filter(({ def }) => {
+            if (!q) return true;
+            return def.name.toLowerCase().includes(q) ||
+              String(def.parentA || "").toLowerCase().includes(q) ||
+              String(def.parentB || "").toLowerCase().includes(q);
+          });
+          list.innerHTML = shown.length ? shown.map(({ def }) => `
+            <div class="library-item">
+              <div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div>
+              <div>${def.parentA || "?"} + ${def.parentB || "?"}</div>
+              <div style="color:#a9a0c2;">${def.description || ""}</div>
+            </div>
+          `).join("") : "<div style='color:var(--muted)'>No combinations found.</div>";
+        };
+        if (search) search.addEventListener("input", render);
+        const closeBtn = document.getElementById("libraryCloseBtn");
+        if (closeBtn) closeBtn.onclick = closeModal;
+        render();
+      }
+      function confirmReturn(instanceId) {
+        const inst = state.inventory.find((x) => x.id === instanceId);
+        if (!inst) return;
+        const def = getDef(inst);
+        showModal(`
+          <div class="serif" style="font-size:20px;">Return to Source (復)</div>
+          <div>Return ${displayName(def)} to the uncarved block?</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button id="cancelReturn">Cancel</button>
+            <button id="confirmReturn">Return</button>
+          </div>
+        `);
+        document.getElementById("cancelReturn").onclick = closeModal;
+        document.getElementById("confirmReturn").onclick = () => {
+          const original = getDef(inst);
+          removeInventoryId(instanceId);
+          state.decayedDaos.push(original.name);
+          const seedName = `${original.name} Seed`;
+          if (!state.canonicalDaos[seedName]) {
+            state.canonicalDaos[seedName] = {
+              name: seedName,
+              tier: 1,
+              description: `${displayName(original)} has returned to stillness.`,
+              affinity: original.affinity,
+              harmonyClass: original.harmonyClass,
+              parentA: original.name,
+              parentB: null,
+              echoPassives: Array.from(new Set([...(original.echoPassives || []), original.name])),
+              isUnstable: false,
+              decayRate: 0,
+              isNameless: false,
+              isReturnedSeed: true
+            };
+          }
+          addInstance(seedName, true);
+          awardCp(30, `${displayName(original)} has returned to the uncarved block, its essence distilled.`);
+          saveState();
+          checkTutorialAdvancement();
+          rerenderUI();
+          closeModal();
+        };
+      }
+      function meditate() {
+        const t = now();
+        const timeEchoCount = state.inventory.reduce((sum, inst) => {
+          const def = getDef(inst);
+          if (!def || !Array.isArray(def.echoPassives)) return sum;
+          return sum + def.echoPassives.filter((x) => x.toLowerCase() === "time").length;
+        }, 0);
+        const reduced = Math.max(20 * 60 * 1000, ONE_HOUR - timeEchoCount * 10 * 60 * 1000);
+        if (t < state.meditateCooldownUntil) {
+          showToast("Meditation still on cooldown.", "warning");
+          return;
+        }
+        state.meditateCooldownUntil = t + reduced;
+        removeAllNudges();
+        awardCp(10, "Meditative clarity");
+        saveState();
+        checkTutorialAdvancement();
+        rerenderUI();
+      }
+      function bindMeditateButton() {
+        const btn = document.getElementById("meditate-btn");
+        const txt = document.getElementById("meditateCdText");
+        if (!btn || !txt) return;
+        const rem = state.meditateCooldownUntil - now();
+        if (rem > 0) {
+          btn.disabled = true;
+          txt.textContent = `Cooldown: ${Math.ceil(rem / 60000)} min`;
+        } else {
+          btn.disabled = false;
+          txt.textContent = "Meditation is available.";
+        }
+        btn.onclick = meditate;
+      }
+      function bindEvents() {
+        if (eventsBound) return;
+        eventsBound = true;
+        document.getElementById("inventoryGrid").onclick = (e) => {
+          const favBtn = e.target.closest(".fav-toggle");
+          if (favBtn) {
+            e.stopPropagation();
+            const name = favBtn.getAttribute("data-fav-name");
+            if (name) toggleFavoriteDao(name);
+            return;
+          }
+          const card = e.target.closest(".dao-card");
+          if (!card) return;
+          selectCard(card.dataset.cardId);
+        };
+        document.getElementById("inventory-filters").onclick = (e) => {
+          const b = e.target.closest("button[data-filter]");
+          if (!b) return;
+          removeAllNudges();
+          state.activeFilter = b.dataset.filter;
+          rerenderUI();
+        };
+        document.getElementById("inventory-filters").addEventListener("input", (e) => {
+          const target = e.target;
+          if (!(target instanceof HTMLInputElement) || target.id !== "inventorySearchInput") return;
+          state.inventorySearch = target.value || "";
+          rerenderUI();
+        });
+        const forgePanel = document.getElementById("forge-panel");
+        if (forgePanel) {
+          forgePanel.addEventListener("click", (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.id === "forgeBtn") {
+              removeAllNudges();
+              forgeSelected();
+            } else if (target.id === "hintBtn") {
+              requestHint();
+            } else if (target.id === "shareBtn") {
+              shareDiscovery();
+            } else if (target.id === "importBtn") {
+              importDiscovery();
+            }
+          });
+        }
+        document.getElementById("mobileTabs").onclick = (e) => {
+          const b = e.target.closest("button[data-tab]");
+          if (!b) return;
+          document.querySelectorAll("#mobileTabs button").forEach((x) => x.classList.remove("active"));
+          b.classList.add("active");
+          const map = { inventory: "inventory-panel", forge: "forge-panel", info: "info-panel" };
+          ["inventory-panel", "forge-panel", "info-panel"].forEach((id) => {
+            document.getElementById(id).classList.add("mobile-hidden");
+          });
+          document.getElementById(map[b.dataset.tab]).classList.remove("mobile-hidden");
+        };
+        const resetBtn = document.getElementById("resetGameBtn");
+        if (resetBtn) {
+          resetBtn.onclick = resetGame;
+        }
+        const libraryBtn = document.getElementById("libraryBtn");
+        if (libraryBtn) {
+          libraryBtn.onclick = openLibraryModal;
+        }
+      }
+
+      // stretch: hint + trading code
+      async function requestHint() {
+        if (state.comprehensionPoints < 20) {
+          showToast("Need 20 CP to seek a hint.", "warning");
+          return;
+        }
+        if (!BACKEND_GENERATE_TOKEN) {
+          showToast("Hints are disabled in hardened mode unless server auth is enabled.", "warning");
+          return;
+        }
+        consumeCp(20);
+        saveState();
+        try {
+          const summary = state.inventory.slice(0, 40).map((i) => getDef(i)?.name).filter(Boolean);
+          const response = await fetch(`${BACKEND_URL}/api/hint`, {
+            method: "POST",
+            headers: backendHeaders(true),
+            body: JSON.stringify({ knownDaos: summary })
+          });
+          if (!response.ok) throw new Error("Hint failed");
+          const data = await response.json();
+          const text = String(data.hint || "No omen answered.");
+          showToast("Oracle hint: " + text.slice(0, 120), "info");
+        } catch (err) {
+          console.error(err);
+          showToast("The oracle is silent.", "danger");
+        }
+      }
+      function shareDiscovery() {
+        const latest = state.discoveryLog[0];
+        if (!latest) { showToast("No discovery to share yet.", "warning"); return; }
+        const key = pairKey(latest.parentA, latest.parentB);
+        const payload = state.discoveredCombinations[key];
+        if (!payload) { showToast("No payload found.", "warning"); return; }
+        const code = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+        navigator.clipboard?.writeText(code).catch(() => {});
+        showToast("Discovery code copied.", "success");
+      }
+      function importDiscovery() {
+        const code = prompt("Paste discovery code:");
+        if (!code) return;
+        try {
+          const data = JSON.parse(decodeURIComponent(escape(atob(code))));
+          if (!data || !data.name) throw new Error("bad");
+          if (!state.canonicalDaos[data.name]) state.canonicalDaos[data.name] = data;
+          const key = pairKey(data.parentA || data.name, data.parentB || data.name + "_");
+          state.discoveredCombinations[key] = data;
+          showToast("Discovery imported to canon.", "success");
+          saveState();
+          checkTutorialAdvancement();
+          rerenderUI();
+        } catch {
+          showToast("Invalid discovery code.", "danger");
+        }
+      }
+
+      // sound
+      function audioCtx() {
+        try {
+          return new (window.AudioContext || window.webkitAudioContext)();
+        } catch {
+          return null;
+        }
+      }
+      function tone(ctx, freq, duration, type, gainVal, when) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type || "sine";
+        osc.frequency.value = freq;
+        gain.gain.value = gainVal || 0.04;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(when);
+        osc.stop(when + duration);
+      }
+      function playForgeSound() {
+        const ctx = audioCtx(); if (!ctx) return;
+        const t = ctx.currentTime + 0.01;
+        [220, 277, 330].forEach((f, i) => tone(ctx, f, 0.22, "sine", 0.045, t + i * 0.06));
+        setTimeout(() => ctx.close(), 600);
+      }
+      function playCollapseSound() {
+        const ctx = audioCtx(); if (!ctx) return;
+        const t = ctx.currentTime + 0.01;
+        [240, 190, 150].forEach((f, i) => tone(ctx, f, 0.22, "triangle", 0.035, t + i * 0.08));
+        setTimeout(() => ctx.close(), 700);
+      }
+      function playWinSound() {
+        const ctx = audioCtx(); if (!ctx) return;
+        const t = ctx.currentTime + 0.01;
+        [196, 247, 294, 392].forEach((f, i) => tone(ctx, f, 1.4, "sine", 0.03, t + i * 0.05));
+        setTimeout(() => ctx.close(), 2200);
+      }
+
+      function pulseBagua(ms) {
+        const el = document.getElementById("baguaHeader");
+        el.style.animationDuration = "1.2s";
+        clearTimeout(baguaBoostTimeout);
+        baguaBoostTimeout = setTimeout(() => {
+          el.style.animationDuration = "10s";
+        }, ms);
+      }
+      function epicFlash() {
+        const flash = document.getElementById("flashLayer");
+        flash.classList.remove("show");
+        void flash.offsetWidth;
+        flash.classList.add("show");
+        const partRoot = document.getElementById("particles");
+        partRoot.innerHTML = "";
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        for (let i = 0; i < 70; i += 1) {
+          const p = document.createElement("div");
+          p.className = "particle";
+          p.style.left = cx + "px";
+          p.style.top = cy + "px";
+          p.style.setProperty("--dx", `${(Math.random() - 0.5) * 900}px`);
+          p.style.setProperty("--dy", `${(Math.random() - 0.5) * 700}px`);
+          p.style.background = i % 2 ? "#c7a6ff" : "#f4d49a";
+          partRoot.appendChild(p);
+        }
+        setTimeout(() => { partRoot.innerHTML = ""; }, 1500);
+      }
+
+      // === INIT ===
+      function initRuntime() {
+        showBackendConfigNotice();
+        bindEvents();
+        startDecayLoop();
+        rerenderUI();
+        if ((state.tutorialStage || 0) === 0 && state.discoveryLog.length === 0) {
+          runOpeningSequence();
+        } else {
+          checkTutorialAdvancement();
+        }
+      }
+      function initialize() {
+        state = loadState();
+        if (!state.inventory || !Array.isArray(state.inventory) || !state.inventory.length) {
+          state = bootstrapState();
+        }
+        saveState();
+        initRuntime();
+      }
+      window.addEventListener("beforeunload", () => {
+        if (decayInterval) clearInterval(decayInterval);
+        saveState();
+      });
+      initialize();
+    })();
+  </script>
+</body>
+</html>

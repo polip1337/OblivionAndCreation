@@ -226,7 +226,12 @@ app.post("/api/forge", readLimiter, async (req, res) => {
       return res.json({ source: "cache", result: cached.rows[0].result_json });
     }
     return res.status(404).json({ error: "NotFound" });
-  } catch {
+  } catch (err) {
+    console.error("forge cache query failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
     return res.status(500).json({ error: "Failed to query forge cache" });
   }
 });
@@ -265,7 +270,12 @@ app.post("/api/forge/generate", requireServerToken, generateLimiter, async (req,
       [key]
     );
     return res.json({ source: "generated", result: inserted.rows[0].result_json });
-  } catch {
+  } catch (err) {
+    console.error("forge generate failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
     return res.status(502).json({ error: "Forge generation failed" });
   }
 });
@@ -278,12 +288,22 @@ app.post("/api/hint", requireServerToken, generateLimiter, async (req, res) => {
   try {
     const hint = await callHintModel(parsed.data.knownDaos);
     return res.json({ hint });
-  } catch {
+  } catch (err) {
+    console.error("hint generation failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
     return res.status(502).json({ error: "Hint generation failed" });
   }
 });
 
 app.use((err, req, res, next) => {
+  console.error("unhandled server error:", {
+    message: err?.message,
+    code: err?.code,
+    stack: err?.stack
+  });
   if (res.headersSent) return next(err);
   return res.status(500).json({ error: "Internal server error" });
 });

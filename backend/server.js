@@ -181,7 +181,30 @@ async function callForgeModel(daoA, daoB, tier) {
   });
   const content = completion?.choices?.[0]?.message?.content;
   if (!content) throw new Error("Empty model response");
-  const parsed = JSON.parse(content);
+
+  const parsed = (() => {
+    let str = String(content).trim();
+
+    // Some providers still wrap JSON in Markdown fences; strip them.
+    // Examples:
+    // ```json { ... } ```
+    // ``` { ... } ```
+    str = str.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+
+    try {
+      return JSON.parse(str);
+    } catch {
+      // Fall back to extracting the first JSON object substring.
+      const firstBrace = str.indexOf("{");
+      const lastBrace = str.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const sub = str.slice(firstBrace, lastBrace + 1);
+        return JSON.parse(sub);
+      }
+      throw new Error("Could not parse model JSON");
+    }
+  })();
+
   return normalizeForgeResult(parsed, daoA, daoB, tier);
 }
 

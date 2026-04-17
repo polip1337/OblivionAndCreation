@@ -1038,7 +1038,7 @@
             <span id="forgeSpinner" class="spinner"></span>
           </div>
           <div class="feed" id="recentFeed"></div>
-          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+          <div id="t1ManifestAreaForge" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
             <button id="seedManifestBtnForge" class="hint-btn">Summon Random Dao</button>
             <div class="seed-cooldown-track"><div id="seedManifestCdFillForge" class="seed-cooldown-fill"></div></div>
             <div class="tooltip" id="seedManifestCdTextForge"></div>
@@ -1092,8 +1092,8 @@
       const BASE_HIGHER_TIER_MANIFEST_COOLDOWN_MS = 30000;
       const BASE_INVENTORY_SIZE = 10;
       const HIGHER_TIER_MANIFEST_MILESTONES = [
-        { tier: 2, cpRequired: 120 },
-        { tier: 3, cpRequired: 260 },
+        { tier: 2, cpRequired: 100 },
+        { tier: 3, cpRequired: 250 },
         { tier: 4, cpRequired: 500 }
       ];
       const QUOTES = [
@@ -2966,7 +2966,7 @@
                 <span id="forgeSpinner" class="spinner"></span>
               </div>
               <div class="feed" id="recentFeed"></div>
-              <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+              <div id="t1ManifestAreaForge" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
                 <button id="seedManifestBtnForge" class="hint-btn">Summon Random Dao</button>
                 <div class="seed-cooldown-track"><div id="seedManifestCdFillForge" class="seed-cooldown-fill"></div></div>
                 <div class="tooltip" id="seedManifestCdTextForge"></div>
@@ -3623,11 +3623,16 @@
         rerenderUI();
       }
       function bindSeedManifestButton() {
+        const t1Area = document.getElementById("t1ManifestAreaForge");
+        // Unlock around tutorial step 5 timing (after reaching T2 and entering collection phase).
+        const showT1Manifest = stageUnlocked(4);
+        if (t1Area) t1Area.classList.toggle("hidden", !showT1Manifest);
         const bindOne = (btnId, txtId, fillId) => {
           const btn = document.getElementById(btnId);
           const txt = document.getElementById(txtId);
           const fill = fillId ? document.getElementById(fillId) : null;
           if (!btn || !txt) return;
+          if (btnId === "seedManifestBtnForge" && !showT1Manifest) return;
           const rem = state.meditateCooldownUntil - now();
           const cdTotal = Math.max(1, Number(state.seedManifestCooldownMs) || seedManifestCooldownMs());
           const cap = inventoryCapacity();
@@ -3665,6 +3670,7 @@
             btn.title = "No milestone configured.";
             return;
           }
+          btn.classList.toggle("hidden", !unlocked);
           btn.disabled = !unlocked;
           btn.title = unlocked
             ? `Manifest a random discovered T${tier} Dao.`
@@ -3674,21 +3680,20 @@
         const bindHigherTierArea = () => {
           const txt = document.getElementById("higherTierManifestCdTextForge");
           const fill = document.getElementById("higherTierManifestCdFillForge");
+          const area = document.getElementById("higherTierManifestArea");
           if (!txt) return;
           const rem = state.higherTierManifestCooldownUntil - now();
           const cdTotal = Math.max(1, Number(state.higherTierManifestCooldownMs) || higherTierManifestCooldownMs());
           const cap = inventoryCapacity();
           const isFull = state.inventory.length >= cap;
           const unlockedAny = HIGHER_TIER_MANIFEST_MILESTONES.some((m) => canUseHigherTierManifest(m.tier));
+          if (area) area.classList.toggle("hidden", !unlockedAny);
           const readyTierCounts = HIGHER_TIER_MANIFEST_MILESTONES
             .filter((m) => canUseHigherTierManifest(m.tier))
             .map((m) => `T${m.tier}:${higherTierManifestPoolNames(m.tier).length}`)
             .join(" • ");
           if (!unlockedAny) {
-            const next = HIGHER_TIER_MANIFEST_MILESTONES.find((m) => (state.totalCpEarned || 0) < m.cpRequired);
-            txt.textContent = next
-              ? `Higher-tier manifest unlocks at ${next.cpRequired} total CP (${state.totalCpEarned || 0}/${next.cpRequired}).`
-              : "Higher-tier manifestation not unlocked yet.";
+            txt.textContent = "";
             if (fill) fill.style.width = "0%";
             return;
           }

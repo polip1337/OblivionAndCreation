@@ -249,6 +249,8 @@ function normalizeForgeResult(raw, daoA, daoB, tier) {
     name = name.replace(/\s+Dao\s*$/i, "").trim();
     name = name.replace(/^Dao\s+of\s+/i, "").trim();
     name = name.replace(/\bDao\s+of\s+/ig, "").trim();
+    // Force-strip numeric tokens/suffixes from generated names.
+    name = name.replace(/\b\d+\b/g, " ").replace(/\s+/g, " ").trim();
     const parts = name.split(/\s+(?:and|&)\s+/i).map((p) => p.trim()).filter(Boolean);
     if (parts.length > 1) name = parts[parts.length - 1];
     name = name.replace(/^[\s\-]+|[\s\-]+$/g, "").trim() || name;
@@ -260,6 +262,20 @@ function normalizeForgeResult(raw, daoA, daoB, tier) {
 
   out.name = name.slice(0, 60);
   return out;
+}
+
+function unifyDaoIdentityFromExisting(firstResult, generatedResult) {
+  if (!firstResult || !generatedResult) return generatedResult;
+  // Keep the newly generated pair-key entry, but align identity/bonuses
+  // to the first existing Dao with the same name+tier.
+  return {
+    ...generatedResult,
+    description: firstResult.description ?? generatedResult.description,
+    affinity: firstResult.affinity ?? generatedResult.affinity,
+    harmonyClass: firstResult.harmonyClass ?? generatedResult.harmonyClass,
+    isUnstable: typeof firstResult.isUnstable === "boolean" ? firstResult.isUnstable : generatedResult.isUnstable,
+    decayRate: Number.isFinite(firstResult.decayRate) ? firstResult.decayRate : generatedResult.decayRate
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -487,7 +503,20 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
 
     console.log(`[forge] generating new key="${key}"`);
     // Pass parent affinities so the prompt can bias toward the dominant lineage.
-    const generated = await callForgeModel(daoA, daoB, tier, affinityA, affinityB);
+    let generated = await callForgeModel(daoA, daoB, tier, affinityA, affinityB);
+    const firstExistingByName = await pool.query(
+      `SELECT result_json
+         FROM forge_results
+        WHERE tier = $1
+          AND result_json->>'name' = $2
+        ORDER BY pair_key ASC
+        LIMIT 1`,
+      [tier, generated.name]
+    );
+    if (firstExistingByName.rowCount > 0) {
+      generated = unifyDaoIdentityFromExisting(firstExistingByName.rows[0].result_json, generated);
+      console.log(`[forge] unified duplicate dao identity name="${generated.name}" tier=${tier} from first existing entry`);
+    }
     const ipHash = hashIp(req.ip);
 
     await pool.query(

@@ -22,19 +22,41 @@ const {
   SESSION_ISSUER = "dao-forge"
 } = process.env;
 
-if (!DATABASE_URL) {
-  throw new Error("Missing DATABASE_URL");
-}
-if (!OPENROUTER_API_KEY) {
-  throw new Error("Missing OPENROUTER_API_KEY");
-}
-if (!ALLOWED_ORIGIN) {
-  throw new Error("Missing ALLOWED_ORIGIN");
-}
-if (!SERVER_AUTH_TOKEN) {
-  throw new Error("Missing SERVER_AUTH_TOKEN");
-}
+if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
+if (!OPENROUTER_API_KEY) throw new Error("Missing OPENROUTER_API_KEY");
+if (!ALLOWED_ORIGIN) throw new Error("Missing ALLOWED_ORIGIN");
+if (!SERVER_AUTH_TOKEN) throw new Error("Missing SERVER_AUTH_TOKEN");
 
+// ---------------------------------------------------------------------------
+// Tier 1 seed Daos — concrete natural elements only.
+// Abstract concepts (Void, Time, Chaos, Order, Dream, etc.) belong at T4+.
+// ---------------------------------------------------------------------------
+const TIER1_SEEDS = [
+  ["Fire",    "Yang",    "Heaven"],
+  ["Water",   "Yin",     "Heaven"],
+  ["Stone",   "Neutral", "Earth"],
+  ["Wind",    "Yang",    "Heaven"],
+  ["Mist",    "Yin",     "Earth"],
+  ["Thunder", "Yang",    "Heaven"],
+  ["Mud",     "Neutral", "Earth"],
+  ["Ash",     "Yin",     "Earth"],
+  ["Ice",     "Yin",     "Heaven"],
+  ["Bloom",   "Yang",    "Earth"],
+  ["Thorn",   "Neutral", "Earth"],
+  ["Rain",    "Yin",     "Heaven"],
+  ["Ember",   "Yang",    "Heaven"],
+  ["Sand",    "Neutral", "Earth"],
+  ["Root",    "Yin",     "Earth"],
+  ["Smoke",   "Neutral", "Heaven"],
+  ["Tide",    "Yin",     "Heaven"],
+  ["Spark",   "Yang",    "Heaven"],
+  ["Blood",   "Yang",    "Human"],
+  ["Bone",    "Neutral", "Human"]
+];
+
+// ---------------------------------------------------------------------------
+// App setup
+// ---------------------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
 const trustProxyHops = Number(TRUST_PROXY_HOPS);
@@ -47,7 +69,6 @@ app.use(helmet({
 
 app.use(cors({
   origin(origin, cb) {
-    // Allow same-origin non-browser requests (curl/health checks) without Origin header.
     if (!origin) return cb(null, true);
     if (origin === "null" && ALLOW_NULL_ORIGIN === "true") return cb(null, true);
     if (origin === ALLOWED_ORIGIN) return cb(null, true);
@@ -59,6 +80,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "16kb" }));
 
+// ---------------------------------------------------------------------------
+// DB + AI clients
+// ---------------------------------------------------------------------------
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -76,6 +100,9 @@ const openai = new OpenAI({
   }
 });
 
+// ---------------------------------------------------------------------------
+// Rate limiters
+// ---------------------------------------------------------------------------
 const readLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 120,
@@ -97,10 +124,16 @@ const sessionLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// ---------------------------------------------------------------------------
+// Validation schemas
+// ---------------------------------------------------------------------------
 const forgeInputSchema = z.object({
   daoA: z.string().trim().min(1).max(60).regex(/^[A-Za-z0-9 \-]+$/),
   daoB: z.string().trim().min(1).max(60).regex(/^[A-Za-z0-9 \-]+$/),
-  tier: z.number().int().min(1).max(9)
+  tier: z.number().int().min(1).max(9),
+  // Optional parent affinities passed by the client for prompt biasing.
+  affinityA: z.enum(["Yin", "Yang", "Neutral", "Paradox"]).optional(),
+  affinityB: z.enum(["Yin", "Yang", "Neutral", "Paradox"]).optional()
 });
 
 const hintInputSchema = z.object({
@@ -112,6 +145,9 @@ const hintInputSchema = z.object({
 const allowedAffinities = new Set(["Yin", "Yang", "Neutral", "Paradox"]);
 const allowedHarmony = new Set(["Heaven", "Earth", "Human"]);
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 function normalizeName(name) {
   return String(name || "").trim().replace(/\s+/g, " ");
 }
@@ -125,8 +161,6 @@ function pairKey(daoA, daoB, tier) {
 
 function hashIp(ip) {
   let normalized = String(ip || "").trim();
-  // Normalize IPv4-mapped IPv6 addresses to a consistent string.
-  // Example: ::ffff:1.2.3.4 -> 1.2.3.4
   normalized = normalized.replace(/^::ffff:/i, "");
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }
@@ -134,10 +168,8 @@ function hashIp(ip) {
 function getClientIp(req) {
   const xff = req.headers["x-forwarded-for"];
   if (typeof xff === "string" && xff.trim()) {
-    // Use left-most (original client) when multiple proxies append.
     return xff.split(",")[0].trim();
   }
-  // Fallback to Express' parsed ip (depends on trust proxy).
   return req.ip || req.socket?.remoteAddress || "";
 }
 
@@ -147,6 +179,10 @@ function seededUnitInterval(seed) {
   return Number.isFinite(intVal) ? intVal / 0xffffffff : 0.5;
 }
 
+// ---------------------------------------------------------------------------
+// Affinity convergence — tiers 6-8 push toward Yin/Yang poles.
+// T9 is handled separately in normalizeForgeResult.
+// ---------------------------------------------------------------------------
 function convergeHighTierAffinity(rawAffinity, daoA, daoB, tier) {
   if (tier < 6 || tier > 8) return rawAffinity;
   const a = normalizeName(daoA);
@@ -160,7 +196,6 @@ function convergeHighTierAffinity(rawAffinity, daoA, daoB, tier) {
     ? rawAffinity
     : (uPolarity < 0.5 ? "Yang" : "Yin");
 
-  // Slow convergence toward Yin/Yang as tiers rise:
   // T6: 75% polar, 17% neutral, 8% paradox
   // T7: 88% polar, 8% neutral, 4% paradox
   // T8: 98% polar, 1% neutral, 1% paradox
@@ -186,79 +221,139 @@ function normalizeForgeResult(raw, daoA, daoB, tier) {
 
   let name = String(raw?.name || "").trim();
   if (!name) name = `${normalizeName(daoA)}-${normalizeName(daoB)}`;
+
   if (tier === 9) {
-    if (!["Creation", "Oblivion"].includes(name)) {
-      name = out.affinity === "Yin" ? "Oblivion" : "Creation";
+    // T9: resolve to one of three terminal endpoints.
+    // Neutral gets its own endpoint; Paradox is forced to a pole via seeded
+    // randomness so the same pair always produces the same result.
+    if (!["Creation", "Oblivion", "Equilibrium"].includes(name)) {
+      if (out.affinity === "Neutral") {
+        name = "Equilibrium";
+      } else {
+        let resolvedAffinity = out.affinity;
+        if (resolvedAffinity === "Paradox") {
+          const a = normalizeName(daoA);
+          const b = normalizeName(daoB);
+          const sorted = [a, b].sort((x, y) => x.localeCompare(y));
+          const seed = `${sorted[0]}|${sorted[1]}|9|resolution`;
+          resolvedAffinity = seededUnitInterval(seed) < 0.5 ? "Yin" : "Yang";
+        }
+        name = resolvedAffinity === "Yin" ? "Oblivion" : "Creation";
+      }
     }
-  }
-  if (tier !== 9) {
-    // Examples:
-    // - "Dao of Steam and Mist Dao" -> "Mist"
-    // - "Mist Dao" -> "Mist"
+    // T9 endpoints are always terminal — never unstable.
+    out.isUnstable = false;
+    out.decayRate = 0;
+  } else {
+    // Strip common model artifacts from generated names.
     name = name.replace(/\s+Dao\s*$/i, "").trim();
     name = name.replace(/^Dao\s+of\s+/i, "").trim();
     name = name.replace(/\bDao\s+of\s+/ig, "").trim();
     const parts = name.split(/\s+(?:and|&)\s+/i).map((p) => p.trim()).filter(Boolean);
     if (parts.length > 1) name = parts[parts.length - 1];
     name = name.replace(/^[\s\-]+|[\s\-]+$/g, "").trim() || name;
-  }
-  out.name = name.slice(0, 60);
 
-  out.isUnstable = out.affinity === "Paradox";
-  const decayRate = Number(raw?.decayRate) || 0;
-  out.decayRate = out.isUnstable ? Math.min(180000, Math.max(30000, decayRate || 90000)) : 0;
+    out.isUnstable = out.affinity === "Paradox";
+    const decayRate = Number(raw?.decayRate) || 0;
+    out.decayRate = out.isUnstable ? Math.min(180000, Math.max(30000, decayRate || 90000)) : 0;
+  }
+
+  out.name = name.slice(0, 60);
   return out;
 }
 
-function buildForgePrompt(daoA, daoB, tier) {
-  return `You are generating a Dao for a cultivation game.
-Return strict JSON only with keys:
-name,tier,description,affinity,harmonyClass,isUnstable,decayRate
+// ---------------------------------------------------------------------------
+// Prompt building — tier-aware thematic register + affinity inheritance.
+// ---------------------------------------------------------------------------
 
+/**
+ * Returns a thematic description for the target tier so the model understands
+ * where in the concrete→abstract arc it is generating.
+ */
+function getTierTheme(tier) {
+  return {
+    1: "concrete natural elements: fire, water, stone, wind, mist",
+    2: "simple natural forces and phenomena: tide, storm, drought, bloom",
+    3: "elemental interactions and early tensions: erosion, ignition, stillness",
+    4: "abstract natural principles: cycle, entropy, equilibrium, pressure",
+    5: "philosophical tensions and dualities: impermanence, resonance, void-echo",
+    6: "deep metaphysical concepts: dissolution, emergence, boundlessness",
+    7: "near-absolute principles: negation, totality, the formless",
+    8: "threshold concepts, one step from the absolute: the Unnamed, the Unborn, Pure Potential",
+    9: "the absolute poles of existence: Creation or Oblivion only"
+  }[tier] ?? "abstract philosophical concepts";
+}
+
+/**
+ * Few-shot vocabulary anchors for high tiers where the model is most likely
+ * to reach for generic fantasy words rather than the threshold-concept register.
+ */
+function getHighTierExamples(tier) {
+  if (tier < 7) return "";
+  return `
+Examples of good names at this tier:
+- T7: "The Formless", "Negation", "Stillpoint", "Unbecoming", "The Hollow"
+- T8: "Pure Absence", "The Threshold", "Unnamed Potential", "The Unborn"
+- T9: "Creation" (Yang/Heaven) or "Oblivion" (Yin/Earth) — no other names are valid at T9
+
+Bad examples (too concrete or too generic-fantasy): "Shadow Flame", "Void Dragon", "Eternal Storm", "Dark Force"
+`;
+}
+
+function buildForgePrompt(daoA, daoB, tier, affinityA, affinityB) {
+  const theme = getTierTheme(tier);
+  const highTierExamples = getHighTierExamples(tier);
+
+  const affinityContext = (affinityA && affinityB)
+    ? `\n- Parent affinities: ${affinityA} and ${affinityB}. Bias the output affinity toward the dominant parent affinity. If both parents share the same affinity, inherit it directly.`
+    : "";
+
+  return `You are generating a Dao name for a cultivation game where Daos evolve from the concrete to the absolute.
+Return strict JSON only with keys: name, tier, description, affinity, harmonyClass, isUnstable, decayRate
+
+The naming arc across tiers moves from concrete elements toward absolute concepts:
+- Low tiers (1-3): concrete elements and natural forces (Fire, Stone, Tide)
+- Mid tiers (4-6): abstract principles and metaphysical tensions (Entropy, Dissolution)
+- High tiers (7-8): near-absolute, nameless, threshold concepts (The Formless, Pure Absence)
+- Tier 9: only "Creation" (Yang) or "Oblivion" (Yin) — the two absolute poles${highTierExamples}
 Input:
 - daoA: ${daoA}
 - daoB: ${daoB}
 - target tier: ${tier}
+- thematic register for tier ${tier}: ${theme}${affinityContext}
 
 Rules:
 - tier must equal ${tier}
-- affinity: Yin, Yang, Neutral, or Paradox
+- name must feel like a natural conceptual evolution *beyond* both parents, fitting the thematic register above
+- name is ideally 1-2 words, max 60 chars — do not include the word "Dao"
+- description narrates HOW the two parent concepts dissolved into this new one (max 160 chars)
+- affinity: Yin, Yang, Neutral, or Paradox${affinityContext ? " — bias toward dominant parent" : ""}
 - harmonyClass: Heaven, Earth, or Human
-- isUnstable true only for Paradox
-- decayRate 0 unless unstable; unstable range 30000-180000
-- name max 60 chars
-- description max 160 chars`;
+- isUnstable: true only when affinity is Paradox
+- decayRate: 0 unless unstable; unstable range 30000–180000`;
 }
 
-async function callForgeModel(daoA, daoB, tier) {
+async function callForgeModel(daoA, daoB, tier, affinityA, affinityB) {
   const completion = await openai.chat.completions.create({
     model: OPENROUTER_MODEL,
     temperature: 0.3,
     max_tokens: 220,
     response_format: { type: "json_object" },
-    messages: [{ role: "user", content: buildForgePrompt(daoA, daoB, tier) }]
+    messages: [{ role: "user", content: buildForgePrompt(daoA, daoB, tier, affinityA, affinityB) }]
   });
   const content = completion?.choices?.[0]?.message?.content;
   if (!content) throw new Error("Empty model response");
 
   const parsed = (() => {
     let str = String(content).trim();
-
-    // Some providers still wrap JSON in Markdown fences; strip them.
-    // Examples:
-    // ```json { ... } ```
-    // ``` { ... } ```
     str = str.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
-
     try {
       return JSON.parse(str);
     } catch {
-      // Fall back to extracting the first JSON object substring.
       const firstBrace = str.indexOf("{");
       const lastBrace = str.lastIndexOf("}");
       if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        const sub = str.slice(firstBrace, lastBrace + 1);
-        return JSON.parse(sub);
+        return JSON.parse(str.slice(firstBrace, lastBrace + 1));
       }
       throw new Error("Could not parse model JSON");
     }
@@ -282,6 +377,9 @@ async function callHintModel(knownDaos) {
   return content.slice(0, 100) || "No omen answered.";
 }
 
+// ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
 function getBearerToken(req) {
   const authHeader = String(req.get("authorization") || "");
   return authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
@@ -292,9 +390,7 @@ function requireSessionScope(requiredScope) {
     const token = getBearerToken(req);
     if (!token) return res.status(401).json({ error: "Unauthorized" });
     try {
-      const payload = jwt.verify(token, SERVER_AUTH_TOKEN, {
-        issuer: SESSION_ISSUER
-      });
+      const payload = jwt.verify(token, SERVER_AUTH_TOKEN, { issuer: SESSION_ISSUER });
       const expectedIpHash = hashIp(getClientIp(req));
       if (!payload || payload.ip_hash !== expectedIpHash) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -310,9 +406,10 @@ function requireSessionScope(requiredScope) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 app.post("/api/session", sessionLimiter, async (req, res) => {
-  // Issue a short-lived JWT tied to the caller's IP.
-  // This avoids putting long-lived secrets in the browser.
   const ipHash = hashIp(getClientIp(req));
   const ttl = Number(SESSION_TTL_SECONDS);
   const token = jwt.sign(
@@ -335,6 +432,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
+// Cache lookup (no auth required — public read).
 app.post("/api/forge", readLimiter, async (req, res) => {
   const parsed = forgeInputSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -366,13 +464,14 @@ app.post("/api/forge", readLimiter, async (req, res) => {
   }
 });
 
+// Generation endpoint (session auth required).
 app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:generate"), async (req, res) => {
   const parsed = forgeInputSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid forge payload" });
   }
 
-  const { daoA, daoB, tier } = parsed.data;
+  const { daoA, daoB, tier, affinityA, affinityB } = parsed.data;
   const key = pairKey(daoA, daoB, tier);
   console.log(`[forge] generate requested key="${key}"`);
 
@@ -387,14 +486,15 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
     }
 
     console.log(`[forge] generating new key="${key}"`);
-    const generated = await callForgeModel(daoA, daoB, tier);
+    // Pass parent affinities so the prompt can bias toward the dominant lineage.
+    const generated = await callForgeModel(daoA, daoB, tier, affinityA, affinityB);
     const ipHash = hashIp(req.ip);
 
     await pool.query(
       `INSERT INTO forge_results
-      (pair_key, dao_a, dao_b, tier, result_json, generated_by_ip_hash)
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-      ON CONFLICT (pair_key) DO NOTHING`,
+        (pair_key, dao_a, dao_b, tier, result_json, generated_by_ip_hash)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+       ON CONFLICT (pair_key) DO NOTHING`,
       [key, normalizeName(daoA), normalizeName(daoB), tier, JSON.stringify(generated), ipHash]
     );
 
@@ -432,6 +532,9 @@ app.post("/api/hint", generateLimiter, requireSessionScope("forge:hint"), async 
   }
 });
 
+// ---------------------------------------------------------------------------
+// Error handler
+// ---------------------------------------------------------------------------
 app.use((err, req, res, next) => {
   console.error("unhandled server error:", {
     message: err?.message,

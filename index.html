@@ -1043,6 +1043,15 @@
             <div class="seed-cooldown-track"><div id="seedManifestCdFillForge" class="seed-cooldown-fill"></div></div>
             <div class="tooltip" id="seedManifestCdTextForge"></div>
           </div>
+          <div id="higherTierManifestArea" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button id="tierManifestBtn2" class="hint-btn">Manifest T2 Dao</button>
+              <button id="tierManifestBtn3" class="hint-btn">Manifest T3 Dao</button>
+              <button id="tierManifestBtn4" class="hint-btn">Manifest T4 Dao</button>
+            </div>
+            <div class="seed-cooldown-track"><div id="higherTierManifestCdFillForge" class="seed-cooldown-fill"></div></div>
+            <div class="tooltip" id="higherTierManifestCdTextForge"></div>
+          </div>
         </div>
       </section>
 
@@ -1076,11 +1085,17 @@
 
       const SAVE_KEY = "dao_synthesis_save";
       const BACKEND_URL = "https://oblivionandcreation.onrender.com";
-      const VERSION = 8;
+      const VERSION = 9;
       const ONE_HOUR = 60 * 60 * 1000;
       const DECAY_TICK_MS = 5000;
       const BASE_SEED_MANIFEST_COOLDOWN_MS = 10000;
+      const BASE_HIGHER_TIER_MANIFEST_COOLDOWN_MS = 30000;
       const BASE_INVENTORY_SIZE = 10;
+      const HIGHER_TIER_MANIFEST_MILESTONES = [
+        { tier: 2, cpRequired: 120 },
+        { tier: 3, cpRequired: 260 },
+        { tier: 4, cpRequired: 500 }
+      ];
       const QUOTES = [
         "The Dao that can be spoken is not the eternal Dao.",
         "Returning is the motion of the Dao.",
@@ -1235,6 +1250,8 @@
         firstTierMilestones: { 3: false, 5: false, 7: false },
         meditateCooldownUntil: 0,
         seedManifestCooldownMs: 0,
+        higherTierManifestCooldownUntil: 0,
+        higherTierManifestCooldownMs: 0,
         lastFreeForgeDay: null,
         freeForgeCharges: 0,
         humanDiscoveryProgress: 0,
@@ -1547,11 +1564,36 @@
         const excluded = new Set(state.randomManifestExcludedNames || []);
         return Array.from(base).filter((name) => !excluded.has(name));
       }
+      function higherTierManifestPoolNames(targetTier) {
+        const tier = Number(targetTier);
+        if (!Number.isFinite(tier) || tier < 2) return [];
+        const defs = Object.values(state.discoveredCombinations || {})
+          .filter((def) => def && def.name && def.tier === tier && !def.isNameless);
+        const unique = new Set(defs.map((def) => def.name).filter((name) => !!state.canonicalDaos[name]));
+        return Array.from(unique);
+      }
       function randomManifestDaoName() {
         const pool = randomManifestPoolNames();
         if (!pool.length) return "";
         const idx = Math.floor(Math.random() * pool.length);
         return pool[idx];
+      }
+      function randomManifestDaoNameForTier(tier) {
+        const pool = higherTierManifestPoolNames(tier);
+        if (!pool.length) return "";
+        const idx = Math.floor(Math.random() * pool.length);
+        return pool[idx];
+      }
+      function higherTierManifestCooldownMs() {
+        const reductionFactor = 1 - (heavenCooldownReductionPercent() / 100);
+        return Math.max(6000, Math.round(BASE_HIGHER_TIER_MANIFEST_COOLDOWN_MS * reductionFactor));
+      }
+      function cpMilestoneForTier(tier) {
+        return HIGHER_TIER_MANIFEST_MILESTONES.find((x) => x.tier === tier) || null;
+      }
+      function canUseHigherTierManifest(tier) {
+        const milestone = cpMilestoneForTier(tier);
+        return !!milestone && (state.totalCpEarned || 0) >= milestone.cpRequired;
       }
       function manifestDaoByName(defName, sourceLabel, quietToast) {
         if (!defName || !state.canonicalDaos[defName]) { showToast("This Dao cannot be manifested yet.", "warning"); return false; }
@@ -1962,6 +2004,11 @@
             if (!parsed.masteryCollapsedDaos || typeof parsed.masteryCollapsedDaos !== "object") parsed.masteryCollapsedDaos = {};
             if (typeof parsed.masteryFoldAll !== "boolean") parsed.masteryFoldAll = true;
           }
+          if (parsed.version === 8) {
+            parsed.version = 9;
+            if (typeof parsed.higherTierManifestCooldownUntil !== "number") parsed.higherTierManifestCooldownUntil = 0;
+            if (typeof parsed.higherTierManifestCooldownMs !== "number") parsed.higherTierManifestCooldownMs = 0;
+          }
           if (parsed.version !== VERSION) throw new Error("version mismatch");
           if (!Array.isArray(parsed.activeDaos)) parsed.activeDaos = [null, null, null];
           parsed.activeDaos = [0, 1, 2].map((idx) => parsed.activeDaos[idx] || null);
@@ -1991,6 +2038,8 @@
           if (typeof parsed.freeForgeCharges !== "number") parsed.freeForgeCharges = 0;
           if (typeof parsed.humanDiscoveryProgress !== "number") parsed.humanDiscoveryProgress = 0;
           if (typeof parsed.seedManifestCooldownMs !== "number") parsed.seedManifestCooldownMs = 0;
+          if (typeof parsed.higherTierManifestCooldownUntil !== "number") parsed.higherTierManifestCooldownUntil = 0;
+          if (typeof parsed.higherTierManifestCooldownMs !== "number") parsed.higherTierManifestCooldownMs = 0;
           if (!Array.isArray(parsed.unlockedSeedNames)) parsed.unlockedSeedNames = [...ELEMENTAL_STARTER_SEEDS];
           parsed.unlockedSeedNames = normalizeUnlockedSeeds(parsed.unlockedSeedNames);
           if (typeof parsed.seedAtlasUnlocked !== "boolean") parsed.seedAtlasUnlocked = false;
@@ -2922,6 +2971,15 @@
                 <div class="seed-cooldown-track"><div id="seedManifestCdFillForge" class="seed-cooldown-fill"></div></div>
                 <div class="tooltip" id="seedManifestCdTextForge"></div>
               </div>
+              <div id="higherTierManifestArea" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button id="tierManifestBtn2" class="hint-btn">Manifest T2 Dao</button>
+                  <button id="tierManifestBtn3" class="hint-btn">Manifest T3 Dao</button>
+                  <button id="tierManifestBtn4" class="hint-btn">Manifest T4 Dao</button>
+                </div>
+                <div class="seed-cooldown-track"><div id="higherTierManifestCdFillForge" class="seed-cooldown-fill"></div></div>
+                <div class="tooltip" id="higherTierManifestCdTextForge"></div>
+              </div>
             `;
             bindEvents();
           }
@@ -3505,6 +3563,35 @@
         createT1Dao("A Dao manifests");
         saveState(); checkTutorialAdvancement(); rerenderUI();
       }
+      function manifestHigherTierDao(targetTier) {
+        const tier = Number(targetTier);
+        if (!canUseHigherTierManifest(tier)) {
+          const milestone = cpMilestoneForTier(tier);
+          const need = milestone ? milestone.cpRequired : 0;
+          showToast(`Need ${need} total CP earned to unlock T${tier} manifestation.`, "warning");
+          return;
+        }
+        const t = now();
+        const cap = inventoryCapacity();
+        if (state.inventory.length >= cap) {
+          showToast(`Inventory is full (${state.inventory.length}/${cap}).`, "warning");
+          return;
+        }
+        if (t < state.higherTierManifestCooldownUntil) {
+          showToast("Higher-tier manifestation is still on cooldown.", "warning");
+          return;
+        }
+        const chosen = randomManifestDaoNameForTier(tier);
+        if (!chosen) {
+          showToast(`No unlocked T${tier} Dao discovered yet. Forge more at this tier first.`, "warning");
+          return;
+        }
+        const reduced = higherTierManifestCooldownMs();
+        state.higherTierManifestCooldownUntil = t + reduced;
+        state.higherTierManifestCooldownMs = reduced;
+        manifestDaoByName(chosen, `A T${tier} Dao manifests`);
+        saveState(); checkTutorialAdvancement(); rerenderUI();
+      }
       function manifestSpecificDao(name, requestedCount) {
         const mastery = getDaoMasteryCount(name);
         if (mastery < 100) { showToast("Need 100 mastery to manifest this Dao directly.", "warning"); return; }
@@ -3567,8 +3654,68 @@
           }
           btn.onclick = manifestSeed;
         };
+        const bindTierOne = (btnId, tier) => {
+          const btn = document.getElementById(btnId);
+          if (!btn) return;
+          const milestone = cpMilestoneForTier(tier);
+          const cpEarned = state.totalCpEarned || 0;
+          const unlocked = canUseHigherTierManifest(tier);
+          if (!milestone) {
+            btn.disabled = true;
+            btn.title = "No milestone configured.";
+            return;
+          }
+          btn.disabled = !unlocked;
+          btn.title = unlocked
+            ? `Manifest a random discovered T${tier} Dao.`
+            : `Unlocks at ${milestone.cpRequired} total CP earned (${cpEarned}/${milestone.cpRequired}).`;
+          btn.onclick = () => manifestHigherTierDao(tier);
+        };
+        const bindHigherTierArea = () => {
+          const txt = document.getElementById("higherTierManifestCdTextForge");
+          const fill = document.getElementById("higherTierManifestCdFillForge");
+          if (!txt) return;
+          const rem = state.higherTierManifestCooldownUntil - now();
+          const cdTotal = Math.max(1, Number(state.higherTierManifestCooldownMs) || higherTierManifestCooldownMs());
+          const cap = inventoryCapacity();
+          const isFull = state.inventory.length >= cap;
+          const unlockedAny = HIGHER_TIER_MANIFEST_MILESTONES.some((m) => canUseHigherTierManifest(m.tier));
+          const readyTierCounts = HIGHER_TIER_MANIFEST_MILESTONES
+            .filter((m) => canUseHigherTierManifest(m.tier))
+            .map((m) => `T${m.tier}:${higherTierManifestPoolNames(m.tier).length}`)
+            .join(" • ");
+          if (!unlockedAny) {
+            const next = HIGHER_TIER_MANIFEST_MILESTONES.find((m) => (state.totalCpEarned || 0) < m.cpRequired);
+            txt.textContent = next
+              ? `Higher-tier manifest unlocks at ${next.cpRequired} total CP (${state.totalCpEarned || 0}/${next.cpRequired}).`
+              : "Higher-tier manifestation not unlocked yet.";
+            if (fill) fill.style.width = "0%";
+            return;
+          }
+          if (rem > 0) {
+            txt.textContent = rem < 60000
+              ? `Next higher-tier manifest in ${Math.ceil(rem / 1000)} sec (${readyTierCounts || "no discovered tiers yet"})`
+              : `Next higher-tier manifest in ${Math.ceil(rem / 60000)} min (${readyTierCounts || "no discovered tiers yet"})`;
+            if (fill) {
+              const pct = Math.max(0, Math.min(100, ((cdTotal - rem) / cdTotal) * 100));
+              fill.style.width = `${pct}%`;
+            }
+            return;
+          }
+          if (isFull) {
+            txt.textContent = `Inventory full (${state.inventory.length}/${cap}).`;
+            if (fill) fill.style.width = "100%";
+            return;
+          }
+          txt.textContent = `Higher-tier manifestation ready. Pools -> ${readyTierCounts || "discover more T2-T4 Daos"}.`;
+          if (fill) fill.style.width = "100%";
+        };
         bindOne("seedManifestBtn", "meditateCdText", "seedManifestCdFillInfo");
         bindOne("seedManifestBtnForge", "seedManifestCdTextForge", "seedManifestCdFillForge");
+        bindTierOne("tierManifestBtn2", 2);
+        bindTierOne("tierManifestBtn3", 3);
+        bindTierOne("tierManifestBtn4", 4);
+        bindHigherTierArea();
       }
       function startSeedCooldownUiLoop() {
         if (seedCooldownUiInterval) clearInterval(seedCooldownUiInterval);

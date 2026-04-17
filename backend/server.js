@@ -141,11 +141,47 @@ function getClientIp(req) {
   return req.ip || req.socket?.remoteAddress || "";
 }
 
+function seededUnitInterval(seed) {
+  const hex = crypto.createHash("sha256").update(seed).digest("hex").slice(0, 8);
+  const intVal = Number.parseInt(hex, 16);
+  return Number.isFinite(intVal) ? intVal / 0xffffffff : 0.5;
+}
+
+function convergeHighTierAffinity(rawAffinity, daoA, daoB, tier) {
+  if (tier < 6 || tier > 8) return rawAffinity;
+  const a = normalizeName(daoA);
+  const b = normalizeName(daoB);
+  const sorted = [a, b].sort((x, y) => x.localeCompare(y));
+  const baseSeed = `${sorted[0]}|${sorted[1]}|${tier}`;
+  const uBucket = seededUnitInterval(`${baseSeed}|bucket`);
+  const uPolarity = seededUnitInterval(`${baseSeed}|polarity`);
+
+  const polarAffinity = (rawAffinity === "Yin" || rawAffinity === "Yang")
+    ? rawAffinity
+    : (uPolarity < 0.5 ? "Yang" : "Yin");
+
+  // Slow convergence toward Yin/Yang as tiers rise:
+  // T6: 75% polar, 17% neutral, 8% paradox
+  // T7: 88% polar, 8% neutral, 4% paradox
+  // T8: 98% polar, 1% neutral, 1% paradox
+  const profileByTier = {
+    6: { paradox: 0.08, neutral: 0.17 },
+    7: { paradox: 0.04, neutral: 0.08 },
+    8: { paradox: 0.01, neutral: 0.01 }
+  };
+  const profile = profileByTier[tier];
+  if (!profile) return rawAffinity;
+  if (uBucket < profile.paradox) return "Paradox";
+  if (uBucket < profile.paradox + profile.neutral) return "Neutral";
+  return polarAffinity;
+}
+
 function normalizeForgeResult(raw, daoA, daoB, tier) {
   const out = {};
   out.tier = tier;
   out.description = String(raw?.description || "Two paths cross, and a tempered doctrine remains.").slice(0, 160);
-  out.affinity = allowedAffinities.has(raw?.affinity) ? raw.affinity : "Neutral";
+  const normalizedAffinity = allowedAffinities.has(raw?.affinity) ? raw.affinity : "Neutral";
+  out.affinity = convergeHighTierAffinity(normalizedAffinity, daoA, daoB, tier);
   out.harmonyClass = allowedHarmony.has(raw?.harmonyClass) ? raw.harmonyClass : "Human";
 
   let name = String(raw?.name || "").trim();

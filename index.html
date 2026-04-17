@@ -1308,7 +1308,19 @@
       ["Blood",   "Yang",    "Human"],
       ["Bone",    "Neutral", "Human"]
       ];
-      const ELEMENTAL_STARTER_SEEDS = TIER1_SEEDS.slice(0, 4).map(([name]) => name);
+      const FIRST_HUMAN_SEED = TIER1_SEEDS.find(([, , harmony]) => harmony === "Human")?.[0] || null;
+      const ELEMENTAL_STARTER_SEEDS = (() => {
+        const starters = TIER1_SEEDS.slice(0, 3).map(([name]) => name);
+        if (FIRST_HUMAN_SEED) starters.push(FIRST_HUMAN_SEED);
+        // Keep exactly 4 unique starter seeds; fallback to list order if needed.
+        const unique = Array.from(new Set(starters));
+        if (unique.length < 4) {
+          TIER1_SEEDS.map(([name]) => name).forEach((name) => {
+            if (unique.length < 4 && !unique.includes(name)) unique.push(name);
+          });
+        }
+        return unique.slice(0, 4);
+      })();
       const TIER1_SEED_META = Object.fromEntries(TIER1_SEEDS.map(([name, affinity, harmony]) => [name, { affinity, harmony }]));
       const TIER1_SEED_META_BY_KEY = Object.fromEntries(
         Object.entries(TIER1_SEED_META).map(([name, meta]) => [echoKey(name), { name, ...meta }])
@@ -1910,13 +1922,18 @@
         `;
       }
 
-      function rerenderUI() {
+      function rerenderUI(preserveLeftTab) {
+        const previousLeftTab = activeLeftTab;
         renderAll();
         applyLeftTab(activeLeftTab);
         renderCultivatorCompass();
         renderActiveDaos();
         bindSeedManifestButton();
         renderTutorialBar();
+        if (preserveLeftTab && previousLeftTab !== activeLeftTab) {
+          activeLeftTab = previousLeftTab;
+          applyLeftTab(activeLeftTab);
+        }
       }
 
       function seedDefinition(name, affinity, harmony) {
@@ -2242,11 +2259,22 @@
       }
       function validateForge(daoA, daoB) {
         if (!daoA || !daoB) return { ok: false, reason: "Select two Daos" };
-        const resultTier = Math.max(daoA.tier, daoB.tier) + 1;
+        if (daoA.cannotMergeAgain || daoB.cannotMergeAgain) {
+          return { ok: false, reason: "This unstable Dao can only be consumed (Activate)." };
+        }
+        const tierMismatch = daoA.tier !== daoB.tier;
+        const resultTier = tierMismatch ? Math.max(daoA.tier, daoB.tier) : (Math.max(daoA.tier, daoB.tier) + 1);
         if (resultTier > state.playerRank + 1) return { ok: false, reason: "Insufficient rank for this tier" };
         const isWinAttempt = isCreationOblivionPair(daoA, daoB);
         if (isWinAttempt) return { ok: true, reason: "Transcendent union", win: true };
-        return { ok: true, reason: "Ready to forge", win: false, cost: 0, resultTier };
+        return {
+          ok: true,
+          reason: tierMismatch ? "Tier mismatch: unstable synthesis (consume-only)" : "Ready to forge",
+          win: false,
+          cost: 0,
+          resultTier,
+          tierMismatch
+        };
       }
       function isCreationOblivionPair(daoA, daoB) {
         const left = daoA.name === "Creation" && daoA.tier === 9 && daoA.affinity === "Yang";
@@ -2343,6 +2371,7 @@
         const key = pairKey(daoA.name, daoB.name);
         const resonance = resonanceScore(daoA, daoB);
         const targetTier = validation.resultTier;
+        const tierMismatch = !!validation.tierMismatch;
         let resultDef;
         try {
           if ((daoA.name === "Chaos" && daoB.name === "Silence") || (daoA.name === "Silence" && daoB.name === "Chaos")) {
@@ -2358,6 +2387,17 @@
             state.canonicalDaos[resultDef.name] = resultDef;
             const discoveryStacks = activatedEchoCountAny(seedNamesByHarmony("Human"));
             awardCp(5 + (discoveryStacks * 3), "New discovery");
+          }
+          if (tierMismatch) {
+            resultDef = {
+              ...resultDef,
+              tier: targetTier,
+              isUnstable: true,
+              decayRate: Math.max(90000, Number(resultDef.decayRate) || 120000),
+              cannotMergeAgain: true
+            };
+            state.discoveredCombinations[key] = resultDef;
+            if (resultDef.name) state.canonicalDaos[resultDef.name] = resultDef;
           }
         } catch (err) {
           console.error(err);
@@ -2384,7 +2424,7 @@
         checkGreatDivergence(resultDef);
         applyMilestoneBonus(resultDef.tier);
         state.discoveryLog.unshift({ timestamp: now(), parentA: daoA.name, parentB: daoB.name, result: resultDef.name });
-        state.sessionRecent.unshift(`${daoA.name} + ${daoB.name} → ${displayName(resultDef)}`);
+        state.sessionRecent.unshift(`${daoA.name} + ${daoB.name} → ${displayName(resultDef)}${tierMismatch ? " [unstable]" : ""}`);
         state.sessionRecent = state.sessionRecent.slice(0, 5);
         const newlyUnlockedSeeds = unlockSeedsByConditions();
         if (newlyUnlockedSeeds.length) showToast(`New seeds unlocked: ${newlyUnlockedSeeds.join(", ")}.`, "success");
@@ -2795,6 +2835,8 @@
                 <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
                   <button data-mastery-dao-toggle="${def.name}" style="background:transparent;border:1px solid #4f3e74;border-radius:6px;padding:2px 6px;">${daoCollapsed ? "▸" : "▾"}</button>
                   <strong style="font-size:12px;flex:1;min-width:0;">${displayName(def)}</strong>
+                  <span class="chip">${HARMONY_ICON[def.harmonyClass] || "·"} ${def.harmonyClass}</span>
+                  <span class="chip">${def.affinity}</span>
                   <span class="chip">M${count}</span>
                   <span class="chip">${label}</span>
                 </div>
@@ -3136,8 +3178,10 @@
       }
       function renderHarmonyWidget() {
         const wrap = document.getElementById("three-harmonies");
-        if (wrap) wrap.classList.toggle("hidden", !stageUnlocked(7));
-        if (!stageUnlocked(7)) return;
+        // Show one step earlier so the tutorial "Hold all three Harmony classes"
+        // objective is visible while the player is working on it.
+        if (wrap) wrap.classList.toggle("hidden", !stageUnlocked(6));
+        if (!stageUnlocked(6)) return;
         const counts = harmonyCounts();
         const total = Math.max(1, state.inventory.length);
         document.getElementById("countHeaven").textContent = String(counts.Heaven);
@@ -3561,7 +3605,7 @@
         state.meditateCooldownUntil = t + reduced;
         state.seedManifestCooldownMs = reduced;
         createT1Dao("A Dao manifests");
-        saveState(); checkTutorialAdvancement(); rerenderUI();
+        saveState(); checkTutorialAdvancement(); rerenderUI(true);
       }
       function manifestHigherTierDao(targetTier) {
         const tier = Number(targetTier);
@@ -3590,7 +3634,7 @@
         state.higherTierManifestCooldownUntil = t + reduced;
         state.higherTierManifestCooldownMs = reduced;
         manifestDaoByName(chosen, `A T${tier} Dao manifests`);
-        saveState(); checkTutorialAdvancement(); rerenderUI();
+        saveState(); checkTutorialAdvancement(); rerenderUI(true);
       }
       function manifestSpecificDao(name, requestedCount) {
         const mastery = getDaoMasteryCount(name);
@@ -3611,7 +3655,7 @@
           if (manifestDaoByName(name, "Mastery manifestation", true)) created += 1;
         }
         if (created > 0) showToast(`Mastery manifestation: ${displayName(state.canonicalDaos[name])} x${created}.`, "success");
-        saveState(); rerenderUI();
+        saveState(); rerenderUI(true);
       }
       function toggleRandomManifestForDao(name) {
         if (getDaoMasteryCount(name) < 100) return;

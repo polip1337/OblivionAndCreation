@@ -2628,16 +2628,16 @@
             if (state.playMode === "supportive") {
               const candidatePayload = await requestSupportiveCandidates(daoA, daoB, targetTier);
               if (candidatePayload && candidatePayload.result) {
-                oracle = candidatePayload.result;
+                oracle = { ...candidatePayload.result, voteEligibleName: false };
               } else {
                 const options = Array.isArray(candidatePayload?.options) ? candidatePayload.options : [];
                 if (!options.length || !candidatePayload?.draftId) throw new Error("No supportive options available");
                 const selectedIdx = await chooseSupportiveCandidateModal(options, daoA, daoB, targetTier);
                 const selected = await selectSupportiveCandidate(candidatePayload.draftId, selectedIdx);
-                oracle = selected || options[selectedIdx];
+                oracle = { ...(selected || options[selectedIdx]), voteEligibleName: true };
               }
             } else {
-              oracle = await callOracle(daoA, daoB, targetTier);
+              oracle = { ...(await callOracle(daoA, daoB, targetTier)), voteEligibleName: false };
             }
             resultDef = { ...oracle, parentA: daoA.name, parentB: daoB.name, echoPassives: buildEchoes(daoA, daoB), isNameless: false, isReturnedSeed: false };
             state.discoveredCombinations[key] = resultDef;
@@ -3445,7 +3445,7 @@
             : "";
           const voteKey = def ? `${def.name}|${def.tier}` : "";
           const voted = !!(voteKey && state.daoVoteLedger && state.daoVoteLedger[voteKey]);
-          const voteHtml = (def && state.playMode === "supportive")
+          const voteHtml = (def && state.playMode === "supportive" && Number(def.tier) >= 2 && def.voteEligibleName === true)
             ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
                  <span class="tooltip">Does this Dao name make sense?</span>
                  <button data-vote-dao="${suffix}" data-vote-value="up" ${voted ? "disabled" : ""}>👍 Upvote</button>
@@ -4417,6 +4417,14 @@
       }
       async function submitDaoVote(def, voteValue) {
         if (!def || !def.name || !def.tier) return;
+        if (Number(def.tier) < 2) {
+          showToast("Voting is available only for Tier 2 and above.", "info");
+          return;
+        }
+        if (def.voteEligibleName !== true) {
+          showToast("Voting is only available for newly generated supportive outcomes.", "info");
+          return;
+        }
         const key = `${def.name}|${def.tier}`;
         if (!state.daoVoteLedger || typeof state.daoVoteLedger !== "object") state.daoVoteLedger = {};
         if (state.daoVoteLedger[key]) {

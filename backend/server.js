@@ -147,7 +147,7 @@ const supportiveSelectSchema = z.object({
 });
 const daoVoteSchema = z.object({
   daoName: z.string().trim().min(1).max(60).regex(/^[A-Za-z0-9 \-]+$/),
-  tier: z.number().int().min(1).max(9),
+  tier: z.number().int().min(2).max(9),
   vote: z.enum(["up", "down"]),
   pairKey: z.string().trim().max(180).optional(),
   sourceMode: z.enum(["simple", "supportive"]).optional()
@@ -327,16 +327,26 @@ Bad examples (too concrete or too generic-fantasy): "Shadow Flame", "Void Dragon
 `;
 }
 
-function buildForgePrompt(daoA, daoB, tier, affinityA, affinityB) {
+function buildForgePrompt(daoA, daoB, tier, affinityA, affinityB, proposalCount = 1) {
   const theme = getTierTheme(tier);
   const highTierExamples = getHighTierExamples(tier);
+  const multiProposal = Number(proposalCount) > 1;
+  const outputShape = multiProposal
+    ? `Return strict JSON only with this shape:
+{
+  "proposals": [
+    { "name": "...", "tier": ${tier}, "description": "...", "affinity": "...", "harmonyClass": "...", "isUnstable": false, "decayRate": 0 }
+  ]
+}
+Return exactly ${proposalCount} proposals.`
+    : "Return strict JSON only with keys: name, tier, description, affinity, harmonyClass, isUnstable, decayRate";
 
   const affinityContext = (affinityA && affinityB)
     ? `\n- Parent affinities: ${affinityA} and ${affinityB}. Bias the output affinity toward the dominant parent affinity. If both parents share the same affinity, inherit it directly.`
     : "";
 
   return `You are generating a Dao name for a cultivation game where Daos evolve from the concrete to the absolute.
-Return strict JSON only with keys: name, tier, description, affinity, harmonyClass, isUnstable, decayRate
+${outputShape}
 
 The naming arc across tiers moves from concrete elements toward absolute concepts:
 - Low tiers (1-3): concrete elements and natural forces (Fire, Stone, Tide)
@@ -357,7 +367,24 @@ Rules:
 - affinity: Yin, Yang, Neutral, or Paradox${affinityContext ? " — bias toward dominant parent" : ""}
 - harmonyClass: Heaven, Earth, or Human
 - isUnstable: true only when affinity is Paradox
-- decayRate: 0 unless unstable; unstable range 30000–180000`;
+- decayRate: 0 unless unstable; unstable range 30000–180000
+${multiProposal ? `- Each proposal must be meaningfully different in wording and conceptual angle.
+- Avoid near-duplicates; do not return the same name twice.` : ""}`;
+}
+
+function parseModelJson(content) {
+  let str = String(content || "").trim();
+  str = str.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
+  try {
+    return JSON.parse(str);
+  } catch {
+    const firstBrace = str.indexOf("{");
+    const lastBrace = str.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      return JSON.parse(str.slice(firstBrace, lastBrace + 1));
+    }
+    throw new Error("Could not parse model JSON");
+  }
 }
 
 async function callForgeModel(daoA, daoB, tier, affinityA, affinityB) {
@@ -370,23 +397,30 @@ async function callForgeModel(daoA, daoB, tier, affinityA, affinityB) {
   });
   const content = completion?.choices?.[0]?.message?.content;
   if (!content) throw new Error("Empty model response");
-
-  const parsed = (() => {
-    let str = String(content).trim();
-    str = str.replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim();
-    try {
-      return JSON.parse(str);
-    } catch {
-      const firstBrace = str.indexOf("{");
-      const lastBrace = str.lastIndexOf("}");
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        return JSON.parse(str.slice(firstBrace, lastBrace + 1));
-      }
-      throw new Error("Could not parse model JSON");
-    }
-  })();
+  const parsed = parseModelJson(content);
 
   return normalizeForgeResult(parsed, daoA, daoB, tier);
+}
+
+async function callForgeModelProposals(daoA, daoB, tier, affinityA, affinityB, proposalCount = 3) {
+  const completion = await openai.chat.completions.create({
+    model: OPENROUTER_MODEL,
+    temperature: 0.6,
+    max_tokens: 600,
+    response_format: { type: "json_object" },
+    messages: [{ role: "user", content: buildForgePrompt(daoA, daoB, tier, affinityA, affinityB, proposalCount) }]
+  });
+  const content = completion?.choices?.[0]?.message?.content;
+  if (!content) throw new Error("Empty model response");
+  const parsed = parseModelJson(content);
+  const rawProposals = Array.isArray(parsed?.proposals) ? parsed.proposals : [];
+  const limited = rawProposals.slice(0, proposalCount);
+  const normalized = limited.map((raw) => normalizeForgeResult(raw, daoA, daoB, tier));
+  if (!normalized.length) throw new Error("No proposals returned");
+  while (normalized.length < proposalCount) {
+    normalized.push(normalized[normalized.length - 1]);
+  }
+  return normalized;
 }
 
 async function callHintModel(knownDaos) {
@@ -571,11 +605,7 @@ app.post("/api/forge/supportive-options", generateLimiter, requireSessionScope("
       return res.json({ source: "cache", result: cached.rows[0].result_json });
     }
 
-    const optionsRaw = await Promise.all([
-      callForgeModel(daoA, daoB, tier, affinityA, affinityB),
-      callForgeModel(daoA, daoB, tier, affinityA, affinityB),
-      callForgeModel(daoA, daoB, tier, affinityA, affinityB)
-    ]);
+    const optionsRaw = await callForgeModelProposals(daoA, daoB, tier, affinityA, affinityB, 3);
     const options = [];
     for (let i = 0; i < optionsRaw.length; i += 1) {
       let candidate = optionsRaw[i];

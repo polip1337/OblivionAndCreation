@@ -249,6 +249,24 @@
       display: grid;
       gap: 6px;
     }
+    .mastery-row-head {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .mastery-name {
+      font-size: 12px;
+      flex: 1 1 110px;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mastery-row-head .chip {
+      font-size: 11px;
+      padding: 2px 6px;
+    }
     .mastery-bar {
       height: 8px;
       border-radius: 999px;
@@ -302,9 +320,31 @@
       border-color: #c9893a;
       background: #3a2a00;
     }
+    .dao-remove-btn {
+      position: absolute;
+      left: 6px;
+      bottom: 6px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid #6d4a4a;
+      background: #321f27;
+      color: #e7c4c4;
+      font-size: 11px;
+      line-height: 1;
+      padding: 0 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .dao-remove-btn:hover {
+      border-color: #b36b6b;
+      background: #472a34;
+    }
     .dao-card:hover { transform: translateY(-2px); }
     .dao-card.selected { border-color: #cfb675; box-shadow: 0 0 0 1px #cfb675 inset; }
     .dao-top { display: flex; justify-content: space-between; gap: 6px; align-items: start; }
+    .dao-top-right { display: flex; gap: 6px; align-items: center; }
     .dao-name { font-size: 14px; line-height: 1.15; }
     .dao-name.blank { color: transparent; text-shadow: 0 0 4px rgba(203, 199, 219, 0.24); }
     .dao-meta { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
@@ -1037,6 +1077,7 @@
             <span class="chip" id="forgeCost">Cost: 0 CP</span>
             <span id="forgeSpinner" class="spinner"></span>
           </div>
+          <div class="tooltip" id="knownForgeResult" style="margin-bottom:8px;"></div>
           <div class="feed" id="recentFeed"></div>
           <div id="t1ManifestAreaForge" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
             <button id="seedManifestBtnForge" class="hint-btn">Summon Random Dao</button>
@@ -1085,7 +1126,7 @@
 
       const SAVE_KEY = "dao_synthesis_save";
       const BACKEND_URL = "https://oblivionandcreation.onrender.com";
-      const VERSION = 11;
+      const VERSION = 12;
       const ONE_HOUR = 60 * 60 * 1000;
       const DECAY_TICK_MS = 5000;
       const BASE_SEED_MANIFEST_COOLDOWN_MS = 10000;
@@ -1287,6 +1328,8 @@
         masteryFoldAll: true,
         developerNoSummonCooldown: false,
         paradoxIntroShown: false
+        ,
+        localForgeCache: {}
       };
       const TIER1_SEEDS = [
       ["Fire",    "Yang",    "Heaven"],
@@ -1361,6 +1404,8 @@
       let lastEarthToastCount = -1;
       let seedCooldownUiInterval = null;
       let seedGraphCy = null;
+      let narrativeRotationInterval = null;
+      let narrativeIndex = 0;
       let tutorialFlavorInterval = null;
       let tutorialFlavorIndex = 0;
 
@@ -1369,6 +1414,7 @@
         return "id-" + Math.random().toString(36).slice(2, 11);
       }
       function pairKey(a, b) { return [a, b].sort().join("+"); }
+      function pairTierKey(a, b, tier) { return `${pairKey(a, b)}|${Number(tier) || 0}`; }
       function clone(v) { return JSON.parse(JSON.stringify(v)); }
       function now() { return Date.now(); }
       function echoKey(x) { return String(x || "").trim().toLowerCase(); }
@@ -1683,6 +1729,23 @@
         return Array.from(names)
           .map((name) => state.canonicalDaos?.[name])
           .filter((def) => def && def.name && !def.isNameless);
+      }
+      function narrativeDaoPool() {
+        const pool = unlockedDaoFlavorPool();
+        if (pool.length) return pool;
+        return [{
+          name: "The Unnamed",
+          description: "In the beginning, there were only the ten thousand unnamed things."
+        }];
+      }
+      function currentNarrativeLine() {
+        const pool = narrativeDaoPool();
+        const idx = narrativeIndex % pool.length;
+        const def = pool[idx];
+        return {
+          title: displayName(def),
+          body: String(def.description || "An unlocked Dao stirs.").slice(0, 220)
+        };
       }
       function currentTutorialFlavorHint() {
         const pool = unlockedDaoFlavorPool();
@@ -2089,6 +2152,10 @@
             parsed.version = 11;
             if (typeof parsed.paradoxIntroShown !== "boolean") parsed.paradoxIntroShown = false;
           }
+          if (parsed.version === 11) {
+            parsed.version = 12;
+            if (!parsed.localForgeCache || typeof parsed.localForgeCache !== "object") parsed.localForgeCache = {};
+          }
           if (parsed.version !== VERSION) throw new Error("version mismatch");
           if (!Array.isArray(parsed.activeDaos)) parsed.activeDaos = [null, null, null];
           parsed.activeDaos = [0, 1, 2].map((idx) => parsed.activeDaos[idx] || null);
@@ -2142,6 +2209,7 @@
           if (typeof parsed.masteryFoldAll !== "boolean") parsed.masteryFoldAll = true;
           if (typeof parsed.developerNoSummonCooldown !== "boolean") parsed.developerNoSummonCooldown = false;
           if (typeof parsed.paradoxIntroShown !== "boolean") parsed.paradoxIntroShown = false;
+          if (!parsed.localForgeCache || typeof parsed.localForgeCache !== "object") parsed.localForgeCache = {};
           if (!parsed.tutorialSeen || typeof parsed.tutorialSeen !== "object") parsed.tutorialSeen = {};
           if (parsed.activeFilter === "t3plus") parsed.activeFilter = "t3";
           if (typeof parsed.tutorialDismissed !== "boolean") parsed.tutorialDismissed = false;
@@ -2233,6 +2301,12 @@
       }
 
       async function callOracle(daoA, daoB, targetTier) {
+        const localKey = pairTierKey(daoA.name, daoB.name, targetTier);
+        const localCached = state.localForgeCache?.[localKey];
+        if (localCached && typeof localCached === "object") {
+          const normalizedLocal = normalizeResult(localCached, targetTier, daoA, daoB);
+          return enforceHighTierPolarity(normalizedLocal, daoA, daoB, targetTier);
+        }
         const payload = { daoA: daoA.name, daoB: daoB.name, tier: targetTier };
         const cacheResponse = await fetch(`${BACKEND_URL}/api/forge`, {
           method: "POST",
@@ -2241,6 +2315,8 @@
         });
         if (cacheResponse.ok) {
           const cacheData = await cacheResponse.json();
+          if (!state.localForgeCache || typeof state.localForgeCache !== "object") state.localForgeCache = {};
+          state.localForgeCache[localKey] = cacheData.result || {};
           const normalized = normalizeResult(cacheData.result || {}, targetTier, daoA, daoB);
           return enforceHighTierPolarity(normalized, daoA, daoB, targetTier);
         }
@@ -2255,6 +2331,8 @@
         if (generateResponse.status === 429) throw Object.assign(new Error("Rate limited"), { code: 429 });
         if (!generateResponse.ok) throw new Error("Forge generation failed: " + generateResponse.status);
         const generatedData = await generateResponse.json();
+        if (!state.localForgeCache || typeof state.localForgeCache !== "object") state.localForgeCache = {};
+        state.localForgeCache[localKey] = generatedData.result || {};
         const normalized = normalizeResult(generatedData.result || {}, targetTier, daoA, daoB);
         return enforceHighTierPolarity(normalized, daoA, daoB, targetTier);
       }
@@ -2669,9 +2747,10 @@
           let banner = document.getElementById("narrativeBanner");
           if (showNarrative) {
             if (!banner) { banner = document.createElement("div"); banner.id = "narrativeBanner"; banner.className = "narrative-banner"; panelBody.prepend(banner); }
+            const line = currentNarrativeLine();
             banner.innerHTML = `
-              <div class="banner-title">In the beginning, there were only the ten thousand unnamed things.</div>
-              <div class="banner-body">Two Daos have found their way to you. What will you forge from them?</div>
+              <div class="banner-title">${line.title}</div>
+              <div class="banner-body">${line.body}</div>
             `;
           } else if (banner) { banner.remove(); }
         }
@@ -2689,9 +2768,25 @@
             return true;
           });
         const limited = !stageUnlocked(3) ? inv.slice(0, starterRevealCount) : inv;
-        grid.innerHTML = limited.map(({ inst, def }) => {
-          const selected = state.selectedIds.includes(inst.id) ? "selected" : "";
-          const hpPercent = Math.max(0, Math.min(100, inst.hp || 0));
+        const grouped = limited.reduce((acc, entry) => {
+          const key = entry.def.name;
+          if (!acc[key]) acc[key] = { def: entry.def, instances: [] };
+          acc[key].instances.push(entry.inst);
+          return acc;
+        }, {});
+        const groupedList = Object.values(grouped).sort((a, b) => {
+          const favA = (state.favoriteDaoNames || []).includes(a.def?.name) ? 1 : 0;
+          const favB = (state.favoriteDaoNames || []).includes(b.def?.name) ? 1 : 0;
+          if (favA !== favB) return favB - favA;
+          const ta = Number(a.def?.tier) || 0;
+          const tb = Number(b.def?.tier) || 0;
+          return (tb - ta) || String(a.def?.name || "").localeCompare(String(b.def?.name || ""));
+        });
+        grid.innerHTML = groupedList.map(({ def, instances }) => {
+          const firstInst = instances[0];
+          const selectedCount = instances.filter((inst) => state.selectedIds.includes(inst.id)).length;
+          const selected = selectedCount > 0 ? "selected" : "";
+          const hpPercent = Math.max(0, Math.min(100, firstInst.hp || 0));
           const critical = hpPercent <= 20 ? "critical" : "";
           const isBlank = def.isNameless ? "blank" : "";
           const isFav = (state.favoriteDaoNames || []).includes(def.name);
@@ -2717,10 +2812,13 @@
             `;
           }
           return `
-            <article class="dao-card ${selected} ${highwayClass}" data-card-id="${inst.id}">
+            <article class="dao-card ${selected} ${highwayClass}" data-card-id="${firstInst.id}" data-card-def="${def.name}">
               <div class="dao-top">
                 <div class="dao-name ${isBlank}">${def.isNameless ? "◯" : displayName(def)}</div>
-                <span class="tier-badge ${tierBadgeClass(def)}">T${def.tier}</span>
+                <div class="dao-top-right">
+                  ${instances.length > 1 ? `<span class="chip">x${instances.length}</span>` : ""}
+                  <span class="tier-badge ${tierBadgeClass(def)}">T${def.tier}</span>
+                </div>
               </div>
               <div class="dao-meta">
                 <span class="aff-dot" style="background:${AFFINITY_COLOR[def.affinity] || "#999"}"></span>
@@ -2729,6 +2827,7 @@
               </div>
               ${def.isUnstable ? `<div class="instability"><div class="instability-fill ${critical}" style="width:${hpPercent}%"></div></div>` : ""}
               ${polarityHtml}
+              <button class="dao-remove-btn" data-remove-def="${def.name}">Remove</button>
               <button class="fav-toggle ${isFav ? "active" : ""}" data-fav-name="${def.name}">${isFav ? "★" : "☆"}</button>
             </article>
           `;
@@ -2931,9 +3030,9 @@
             const canToggleRandomList = unlockedSeedNames().includes(def.name);
             return `
               <div class="mastery-card" style="padding:6px;">
-                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                <div class="mastery-row-head">
                   <button data-mastery-dao-toggle="${def.name}" style="background:transparent;border:1px solid #4f3e74;border-radius:6px;padding:2px 6px;">${daoCollapsed ? "▸" : "▾"}</button>
-                  <strong style="font-size:12px;flex:1;min-width:0;">${displayName(def)}</strong>
+                  <strong class="mastery-name">${displayName(def)}</strong>
                   <span class="chip">${HARMONY_ICON[def.harmonyClass] || "·"} ${def.harmonyClass}</span>
                   <span class="chip">${def.affinity}</span>
                   <span class="chip">M${count}</span>
@@ -3106,6 +3205,7 @@
                 <span class="chip" id="forgeCost">Cost: 0 CP</span>
                 <span id="forgeSpinner" class="spinner"></span>
               </div>
+              <div class="tooltip" id="knownForgeResult" style="margin-bottom:8px;"></div>
               <div class="feed" id="recentFeed"></div>
               <div id="t1ManifestAreaForge" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
                 <button id="seedManifestBtnForge" class="hint-btn">Summon Random Dao</button>
@@ -3149,15 +3249,29 @@
         }
         const forgeBtn = document.getElementById("forgeBtn");
         const reasonEl = document.getElementById("forgeReason");
+        const knownEl = document.getElementById("knownForgeResult");
         if (daoA && daoB) {
           const val = validateForge(daoA, daoB);
           document.getElementById("forgeCost").textContent = "Cost: 0 CP";
           forgeBtn.disabled = !val.ok || forgeBusy;
           reasonEl.textContent = forgeBusy ? "Consulting oracle..." : val.reason;
+          if (knownEl && val && val.ok) {
+            const localKey = pairTierKey(daoA.name, daoB.name, val.resultTier);
+            const localKnown = state.localForgeCache?.[localKey];
+            const pairKnown = state.discoveredCombinations?.[pairKey(daoA.name, daoB.name)];
+            const known = localKnown || pairKnown;
+            if (known && known.name) {
+              const normalizedKnown = normalizeResult(known, val.resultTier, daoA, daoB);
+              knownEl.textContent = `Known result: ${displayName(normalizedKnown)} • T${normalizedKnown.tier} ${normalizedKnown.affinity} / ${normalizedKnown.harmonyClass}`;
+            } else {
+              knownEl.textContent = "";
+            }
+          }
         } else {
           forgeBtn.disabled = true;
           reasonEl.textContent = "Select two Daos";
           document.getElementById("forgeCost").textContent = "Cost: 0 CP";
+          if (knownEl) knownEl.textContent = "";
         }
       }
       function renderRecentFeed() {
@@ -3895,14 +4009,54 @@
           bindSeedManifestButton();
         }, 250);
       }
+      function startNarrativeRotationLoop() {
+        if (narrativeRotationInterval) clearInterval(narrativeRotationInterval);
+        narrativeRotationInterval = setInterval(() => {
+          if (!showNarrative) return;
+          const banner = document.getElementById("narrativeBanner");
+          if (!banner) return;
+          const pool = narrativeDaoPool();
+          narrativeIndex = (narrativeIndex + 1) % pool.length;
+          const line = currentNarrativeLine();
+          banner.innerHTML = `
+            <div class="banner-title">${line.title}</div>
+            <div class="banner-body">${line.body}</div>
+          `;
+        }, 10000);
+      }
       function bindEvents() {
         if (eventsBound) return;
         eventsBound = true;
         document.getElementById("inventoryGrid").onclick = (e) => {
           const favBtn = e.target.closest(".fav-toggle");
           if (favBtn) { e.stopPropagation(); const name = favBtn.getAttribute("data-fav-name"); if (name) toggleFavoriteDao(name); return; }
+          const removeBtn = e.target.closest(".dao-remove-btn");
+          if (removeBtn) {
+            e.stopPropagation();
+            const defName = removeBtn.getAttribute("data-remove-def");
+            if (!defName) return;
+            const inst = state.inventory.find((x) => x.definitionName === defName);
+            if (!inst) return;
+            const def = getDef(inst);
+            removeInventoryId(inst.id);
+            saveState();
+            rerenderUI();
+            showToast(`${displayName(def)} removed from inventory.`, "info");
+            return;
+          }
           const card = e.target.closest(".dao-card");
           if (!card) return;
+          const defName = card.getAttribute("data-card-def");
+          if (defName) {
+            const idsOfType = state.inventory
+              .filter((x) => x.definitionName === defName)
+              .map((x) => x.id);
+            const candidate = idsOfType.find((id) => !state.selectedIds.includes(id))
+              || idsOfType[0]
+              || card.dataset.cardId;
+            if (candidate) selectCard(candidate);
+            return;
+          }
           selectCard(card.dataset.cardId);
         };
         document.getElementById("inventory-filters").onclick = (e) => {
@@ -4138,8 +4292,10 @@
       window.addEventListener("beforeunload", () => {
         if (decayInterval) clearInterval(decayInterval);
         if (seedCooldownUiInterval) clearInterval(seedCooldownUiInterval);
+        if (narrativeRotationInterval) clearInterval(narrativeRotationInterval);
         saveState();
       });
+      startNarrativeRotationLoop();
       initialize();
     })();
   </script>

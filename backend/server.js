@@ -26,10 +26,16 @@ const {
 if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
 if (!OPENROUTER_API_KEY) throw new Error("Missing OPENROUTER_API_KEY");
 if (!SERVER_AUTH_TOKEN) throw new Error("Missing SERVER_AUTH_TOKEN");
+function normalizeOriginValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.replace(/\/+$/, "");
+}
+
 const parsedAllowedOrigins = Array.from(new Set(
   [
-    ...String(ALLOWED_ORIGINS || "").split(",").map((x) => x.trim()).filter(Boolean),
-    ...(ALLOWED_ORIGIN ? [String(ALLOWED_ORIGIN).trim()] : [])
+    ...String(ALLOWED_ORIGINS || "").split(",").map((x) => normalizeOriginValue(x)).filter(Boolean),
+    ...(ALLOWED_ORIGIN ? [normalizeOriginValue(ALLOWED_ORIGIN)] : [])
   ].filter(Boolean)
 ));
 if (!parsedAllowedOrigins.length) {
@@ -76,17 +82,22 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-app.use(cors({
+const corsOptions = {
   origin(origin, cb) {
+    const normalizedIncomingOrigin = normalizeOriginValue(origin);
     if (!origin) return cb(null, true);
     if (origin === "null" && ALLOW_NULL_ORIGIN === "true") return cb(null, true);
-    if (parsedAllowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error("Origin not allowed"));
+    if (parsedAllowedOrigins.includes(normalizedIncomingOrigin)) return cb(null, true);
+    console.warn("[cors] blocked origin", { origin, normalizedIncomingOrigin, allowNullOrigin: ALLOW_NULL_ORIGIN === "true", allowedOrigins: parsedAllowedOrigins });
+    // Return false instead of throwing to avoid 500 on preflight.
+    return cb(null, false);
   },
-  methods: ["GET", "POST"],
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   maxAge: 600
-}));
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "16kb" }));
 
 // ---------------------------------------------------------------------------

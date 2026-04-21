@@ -141,6 +141,17 @@ const hintInputSchema = z.object({
     z.string().trim().min(1).max(60).regex(/^[A-Za-z0-9 \-]+$/)
   ).max(80)
 });
+const supportiveSelectSchema = z.object({
+  draftId: z.string().trim().min(1).max(120),
+  selectedOptionIndex: z.number().int().min(0).max(9)
+});
+const daoVoteSchema = z.object({
+  daoName: z.string().trim().min(1).max(60).regex(/^[A-Za-z0-9 \-]+$/),
+  tier: z.number().int().min(1).max(9),
+  vote: z.enum(["up", "down"]),
+  pairKey: z.string().trim().max(180).optional(),
+  sourceMode: z.enum(["simple", "supportive"]).optional()
+});
 
 const allowedAffinities = new Set(["Yin", "Yang", "Neutral", "Paradox"]);
 const allowedHarmony = new Set(["Heaven", "Earth", "Human"]);
@@ -429,7 +440,7 @@ app.post("/api/session", sessionLimiter, async (req, res) => {
   const ipHash = hashIp(getClientIp(req));
   const ttl = Number(SESSION_TTL_SECONDS);
   const token = jwt.sign(
-    { ip_hash: ipHash, scopes: ["forge:generate", "forge:hint"] },
+    { ip_hash: ipHash, scopes: ["forge:generate", "forge:hint", "forge:vote"] },
     SERVER_AUTH_TOKEN,
     {
       issuer: SESSION_ISSUER,
@@ -543,6 +554,145 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
   }
 });
 
+// Supportive mode: generate multiple candidate outcomes for one new pair.
+app.post("/api/forge/supportive-options", generateLimiter, requireSessionScope("forge:generate"), async (req, res) => {
+  const parsed = forgeInputSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid forge payload" });
+  }
+  const { daoA, daoB, tier, affinityA, affinityB } = parsed.data;
+  const key = pairKey(daoA, daoB, tier);
+  try {
+    const cached = await pool.query(
+      "SELECT result_json FROM forge_results WHERE pair_key = $1",
+      [key]
+    );
+    if (cached.rowCount > 0) {
+      return res.json({ source: "cache", result: cached.rows[0].result_json });
+    }
+
+    const optionsRaw = await Promise.all([
+      callForgeModel(daoA, daoB, tier, affinityA, affinityB),
+      callForgeModel(daoA, daoB, tier, affinityA, affinityB),
+      callForgeModel(daoA, daoB, tier, affinityA, affinityB)
+    ]);
+    const options = [];
+    for (let i = 0; i < optionsRaw.length; i += 1) {
+      let candidate = optionsRaw[i];
+      const firstExistingByName = await pool.query(
+        `SELECT result_json
+           FROM forge_results
+          WHERE tier = $1
+            AND result_json->>'name' = $2
+          ORDER BY pair_key ASC
+          LIMIT 1`,
+        [tier, candidate.name]
+      );
+      if (firstExistingByName.rowCount > 0) {
+        candidate = unifyDaoIdentityFromExisting(firstExistingByName.rows[0].result_json, candidate);
+      }
+      options.push(candidate);
+    }
+
+    const draftId = crypto.randomUUID();
+    const ipHash = hashIp(getClientIp(req));
+    for (let i = 0; i < options.length; i += 1) {
+      await pool.query(
+        `INSERT INTO forge_alternative_results
+          (draft_id, pair_key, dao_a, dao_b, tier, option_index, result_json, selected, generated_by_ip_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, false, $8)`,
+        [draftId, key, normalizeName(daoA), normalizeName(daoB), tier, i, JSON.stringify(options[i]), ipHash]
+      );
+    }
+    return res.json({ source: "generated", draftId, pairKey: key, options });
+  } catch (err) {
+    console.error("supportive option generation failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
+    return res.status(502).json({ error: "Supportive option generation failed" });
+  }
+});
+
+app.post("/api/forge/supportive-select", generateLimiter, requireSessionScope("forge:generate"), async (req, res) => {
+  const parsed = supportiveSelectSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid supportive selection payload" });
+  }
+  const { draftId, selectedOptionIndex } = parsed.data;
+  try {
+    const draftRows = await pool.query(
+      `SELECT pair_key, dao_a, dao_b, tier, option_index, result_json
+         FROM forge_alternative_results
+        WHERE draft_id = $1
+        ORDER BY option_index ASC`,
+      [draftId]
+    );
+    if (draftRows.rowCount === 0) return res.status(404).json({ error: "DraftNotFound" });
+    const picked = draftRows.rows.find((r) => Number(r.option_index) === selectedOptionIndex);
+    if (!picked) return res.status(400).json({ error: "InvalidSelectionIndex" });
+
+    const existing = await pool.query(
+      "SELECT result_json FROM forge_results WHERE pair_key = $1",
+      [picked.pair_key]
+    );
+    if (existing.rowCount === 0) {
+      const ipHash = hashIp(getClientIp(req));
+      await pool.query(
+        `INSERT INTO forge_results
+          (pair_key, dao_a, dao_b, tier, result_json, generated_by_ip_hash)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+         ON CONFLICT (pair_key) DO NOTHING`,
+        [picked.pair_key, picked.dao_a, picked.dao_b, picked.tier, JSON.stringify(picked.result_json), ipHash]
+      );
+    }
+    await pool.query(
+      `UPDATE forge_alternative_results
+          SET selected = (option_index = $2)
+        WHERE draft_id = $1`,
+      [draftId, selectedOptionIndex]
+    );
+    const inserted = await pool.query(
+      "SELECT result_json FROM forge_results WHERE pair_key = $1",
+      [picked.pair_key]
+    );
+    return res.json({ result: inserted.rows[0]?.result_json || picked.result_json });
+  } catch (err) {
+    console.error("supportive selection failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
+    return res.status(502).json({ error: "Supportive selection failed" });
+  }
+});
+
+app.post("/api/dao/vote", generateLimiter, requireSessionScope("forge:vote"), async (req, res) => {
+  const parsed = daoVoteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid vote payload" });
+  }
+  const { daoName, tier, vote, pairKey, sourceMode } = parsed.data;
+  try {
+    const ipHash = hashIp(getClientIp(req));
+    await pool.query(
+      `INSERT INTO forge_name_votes
+        (dao_name, tier, vote_value, pair_key, source_mode, voted_by_ip_hash)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [normalizeName(daoName), tier, vote === "up" ? 1 : -1, pairKey || null, sourceMode || null, ipHash]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("vote submission failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
+    return res.status(502).json({ error: "Vote submission failed" });
+  }
+});
+
 app.post("/api/hint", generateLimiter, requireSessionScope("forge:hint"), async (req, res) => {
   const parsed = hintInputSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -574,6 +724,52 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(Number(PORT), () => {
-  console.log(`Forge backend listening on port ${PORT}`);
+async function ensureTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS forge_alternative_results (
+      id BIGSERIAL PRIMARY KEY,
+      draft_id TEXT NOT NULL,
+      pair_key TEXT NOT NULL,
+      dao_a TEXT NOT NULL,
+      dao_b TEXT NOT NULL,
+      tier INTEGER NOT NULL,
+      option_index INTEGER NOT NULL,
+      result_json JSONB NOT NULL,
+      selected BOOLEAN NOT NULL DEFAULT false,
+      generated_by_ip_hash TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_alternative_results_draft_id ON forge_alternative_results(draft_id)");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_alternative_results_pair_key ON forge_alternative_results(pair_key)");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS forge_name_votes (
+      id BIGSERIAL PRIMARY KEY,
+      dao_name TEXT NOT NULL,
+      tier INTEGER NOT NULL,
+      vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)),
+      pair_key TEXT,
+      source_mode TEXT,
+      voted_by_ip_hash TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_dao_name_tier ON forge_name_votes(dao_name, tier)");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_created_at ON forge_name_votes(created_at DESC)");
+}
+
+async function start() {
+  await ensureTables();
+  app.listen(Number(PORT), () => {
+    console.log(`Forge backend listening on port ${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error("backend start failed:", {
+    message: err?.message,
+    code: err?.code,
+    detail: err?.detail
+  });
+  process.exit(1);
 });

@@ -1204,8 +1204,14 @@
         {
           id: "open_info",
           objective: "Click a Tier 2 (or higher) Dao to read its info",
-          hint: "The Info panel records what happened during synthesis: ancestry, passive echoes, and identity. Echoes are inherited traits from parent Daos, and consuming a Dao into an active slot turns those echoes on. Mastery also unlocks here, tracking creation counts and granting inventory slots per mastery level.",
+          hint: "The Info panel records what happened during synthesis: ancestry, passive echoes, and identity. Echoes are inherited traits from parent Daos, and consuming a Dao into an active slot turns those echoes on.",
           condition: (s) => !!s.tutorialActions?.openedInfoPanel && Object.values(s.canonicalDaos).some((d) => d.tier >= 2)
+        },
+        {
+          id: "open_mastery",
+          objective: "Open the Mastery tab",
+          hint: "Mastery unlocks after you read a Tier 2+ Dao. Open the Mastery tab to track Dao creation counts, unlock targeted manifests at 100 mastery, and gain bonus inventory slots through mastery levels.",
+          condition: (s) => !!s.tutorialActions?.openedMasteryTab
         },
         {
           id: "activate_echoes",
@@ -1243,8 +1249,14 @@
         {
           id: "reach_t4",
           objective: "Forge a Tier 4 Dao",
-          hint: "Tier 4 unlocks Return to Source (復), and once this path opens the Seeds tab reveals a directed graph of seed progression and unlock conditions.",
+          hint: "Tier 4 unlocks Return to Source (復), opening seed progression. This also unlocks the Seeds tab for tracking dormant and awakened seeds.",
           condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4)
+        },
+        {
+          id: "open_seeds",
+          objective: "Open the Seeds tab",
+          hint: "In Seeds, inspect the directed graph: awakened seeds show flavor text, while dormant seeds show exact Return to Source unlock requirements.",
+          condition: (s) => !!s.tutorialActions?.openedSeedsTab
         },
         {
           id: "done",
@@ -1262,19 +1274,22 @@
         4: { label: "Ascending Tiers", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier === 2) },
         5: { label: "The Art of Sorting", condition: (s) => s.inventory.length >= 6 },
         6: { label: "Reading the Scroll", condition: (s) => !!s.tutorialActions?.openedInfoPanel && Object.values(s.canonicalDaos).some((d) => d.tier >= 2) },
-        7: {
+        7: { label: "The Measure of Mastery", condition: (s) => !!s.tutorialActions?.openedMasteryTab },
+        8: {
           label: "Heaven, Earth, Human",
           condition: (s) => {
             const classes = new Set(s.inventory.map((i) => s.canonicalDaos[i.definitionName]?.harmonyClass).filter(Boolean));
             return classes.has("Heaven") && classes.has("Earth") && classes.has("Human");
           }
         },
-        8: { label: "Resonance and Discord", condition: (s) => s.discoveryLog.length >= 2 },
-        9: { label: "The Still Mind", condition: (s) => (s.totalCpEarned || 0) >= 30 },
-        10: { label: "The Great Divergence", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 3) },
-        11: { label: "Return to the Source", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4) },
-        12: { label: "The Full Cultivation Path", condition: (s) => s.tutorialStage >= 11 }
+        9: { label: "Resonance and Discord", condition: (s) => s.discoveryLog.length >= 2 },
+        10: { label: "The Still Mind", condition: (s) => (s.totalCpEarned || 0) >= 30 },
+        11: { label: "The Great Divergence", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 3) },
+        12: { label: "Return to the Source", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4) },
+        13: { label: "The Seed Atlas", condition: (s) => !!s.tutorialActions?.openedSeedsTab },
+        14: { label: "The Full Cultivation Path", condition: (s) => s.tutorialStage >= 13 }
       };
+      const FINAL_TUTORIAL_STAGE = TUTORIAL_STEPS.length - 1;
 
       const BASE_STATE = {
         version: VERSION,
@@ -1314,6 +1329,8 @@
           firstCardClick: false,
           selectedTwoDaos: false,
           openedInfoPanel: false,
+          openedMasteryTab: false,
+          openedSeedsTab: false,
           replacedActiveDao: false,
           activatedFirstDao: false
         },
@@ -1327,7 +1344,9 @@
         masteryCollapsedDaos: {},
         masteryFoldAll: true,
         developerNoSummonCooldown: false,
-        paradoxIntroShown: false
+        paradoxIntroShown: false,
+        playMode: null,
+        daoVoteLedger: {}
         ,
         localForgeCache: {}
       };
@@ -1794,7 +1813,7 @@
         // Progress is monotonic: tutorialStage is the source of truth.
         const stage = Math.max(0, Number(state.tutorialStage) || 0);
         const currentStepIndex = Math.min(stage, Math.max(0, TUTORIAL_STEPS.length - 1));
-        if (stage >= 12) {
+        if (stage >= FINAL_TUTORIAL_STAGE) {
           stopTutorialFlavorRotation();
           // All steps done — show completion briefly then hide
           bar.classList.remove("hidden");
@@ -1849,6 +1868,8 @@
             return "#activeDaoArea";
           case "open_info":
             return "#info-panel";
+          case "open_mastery":
+            return "#middleMasteryTabBtn";
           case "activate_echoes":
             return ".activate-dao-btn";
           case "replace_active":
@@ -1860,6 +1881,8 @@
           case "reach_t3":
           case "reach_t4":
             return "#forge-panel .panel-header";
+          case "open_seeds":
+            return "#middleSeedsTabBtn";
           case "done":
             return "#convergence-compass";
           default:
@@ -1870,7 +1893,7 @@
         document.querySelectorAll(".tutorial-focus").forEach((el) => el.classList.remove("tutorial-focus"));
       }
       function applyTutorialHighlight(stepId) {
-        if (["collect_six", "select_two", "forge_first", "reach_t3", "reach_t4"].includes(stepId)) {
+        if (["collect_six", "select_two", "forge_first", "reach_t3", "reach_t4", "open_mastery", "open_seeds"].includes(stepId)) {
           state.middlePanelTab = "forge";
           renderSlotsAndForge();
         }
@@ -1916,9 +1939,9 @@
 
       function checkTutorialAdvancement() {
         let currentStage = state.tutorialStage || 0;
-        if (currentStage >= 12) return;
+        if (currentStage >= FINAL_TUTORIAL_STAGE) return;
         let advanced = false;
-        while (currentStage < 12) {
+        while (currentStage < FINAL_TUTORIAL_STAGE) {
           const nextStage = currentStage + 1;
           const nextDef = STAGES[nextStage];
           if (!nextDef || !nextDef.condition) break;
@@ -2162,7 +2185,7 @@
           if (!parsed.activatedEchoes || typeof parsed.activatedEchoes !== "object") parsed.activatedEchoes = {};
           if (!Array.isArray(parsed.activatedDaoLog)) parsed.activatedDaoLog = [];
           if (parsed.tutorialStage === undefined) {
-            parsed.tutorialStage = 12;
+            parsed.tutorialStage = FINAL_TUTORIAL_STAGE;
             parsed.tutorialSeen = {};
           }
           if (!parsed.tutorialActions || typeof parsed.tutorialActions !== "object") {
@@ -2170,9 +2193,17 @@
               firstCardClick: true,
               selectedTwoDaos: true,
               openedInfoPanel: true,
+              openedMasteryTab: (Number(parsed.tutorialStage) || 0) >= 6,
+              openedSeedsTab: (Number(parsed.tutorialStage) || 0) >= 12,
               replacedActiveDao: false,
               activatedFirstDao: Array.isArray(parsed.activeDaos) ? parsed.activeDaos.some(Boolean) : false
             };
+          }
+          if (typeof parsed.tutorialActions.openedMasteryTab !== "boolean") {
+            parsed.tutorialActions.openedMasteryTab = false;
+          }
+          if (typeof parsed.tutorialActions.openedSeedsTab !== "boolean") {
+            parsed.tutorialActions.openedSeedsTab = false;
           }
           if (typeof parsed.tutorialActions.activatedFirstDao !== "boolean") {
             parsed.tutorialActions.activatedFirstDao = (parsed.activeDaos || []).some(Boolean);
@@ -2209,6 +2240,8 @@
           if (typeof parsed.masteryFoldAll !== "boolean") parsed.masteryFoldAll = true;
           if (typeof parsed.developerNoSummonCooldown !== "boolean") parsed.developerNoSummonCooldown = false;
           if (typeof parsed.paradoxIntroShown !== "boolean") parsed.paradoxIntroShown = false;
+          if (parsed.playMode !== "simple" && parsed.playMode !== "supportive") parsed.playMode = null;
+          if (!parsed.daoVoteLedger || typeof parsed.daoVoteLedger !== "object") parsed.daoVoteLedger = {};
           if (!parsed.localForgeCache || typeof parsed.localForgeCache !== "object") parsed.localForgeCache = {};
           if (!parsed.tutorialSeen || typeof parsed.tutorialSeen !== "object") parsed.tutorialSeen = {};
           if (parsed.activeFilter === "t3plus") parsed.activeFilter = "t3";
@@ -2335,6 +2368,59 @@
         state.localForgeCache[localKey] = generatedData.result || {};
         const normalized = normalizeResult(generatedData.result || {}, targetTier, daoA, daoB);
         return enforceHighTierPolarity(normalized, daoA, daoB, targetTier);
+      }
+      async function requestSupportiveCandidates(daoA, daoB, targetTier) {
+        const payload = { daoA: daoA.name, daoB: daoB.name, tier: targetTier };
+        await ensureSessionToken();
+        const response = await fetch(`${BACKEND_URL}/api/forge/supportive-options`, {
+          method: "POST",
+          headers: backendHeaders(true),
+          body: JSON.stringify(payload)
+        });
+        if (response.status === 401) throw Object.assign(new Error("Unauthorized generation"), { code: 401 });
+        if (response.status === 429) throw Object.assign(new Error("Rate limited"), { code: 429 });
+        if (!response.ok) throw new Error("Supportive option generation failed: " + response.status);
+        return response.json();
+      }
+      async function selectSupportiveCandidate(draftId, selectedOptionIndex) {
+        await ensureSessionToken();
+        const response = await fetch(`${BACKEND_URL}/api/forge/supportive-select`, {
+          method: "POST",
+          headers: backendHeaders(true),
+          body: JSON.stringify({ draftId, selectedOptionIndex })
+        });
+        if (!response.ok) throw new Error("Supportive option selection failed: " + response.status);
+        const data = await response.json();
+        return data.result || null;
+      }
+      function chooseSupportiveCandidateModal(options, daoA, daoB, targetTier) {
+        return new Promise((resolve, reject) => {
+          const cards = (options || []).map((opt, idx) => {
+            const normalized = enforceHighTierPolarity(normalizeResult(opt || {}, targetTier, daoA, daoB), daoA, daoB, targetTier);
+            return `
+              <div class="library-item" style="display:grid;gap:6px;">
+                <div><strong>Option ${idx + 1}: ${displayName(normalized)}</strong> — T${normalized.tier} ${normalized.affinity} / ${normalized.harmonyClass}</div>
+                <div style="color:#b8afcf;">${normalized.description || ""}</div>
+                <div><button data-supportive-pick="${idx}">Choose this Dao</button></div>
+              </div>
+            `;
+          }).join("");
+          showModal(`
+            <div class="serif" style="font-size:22px;">Supportive Mode: Choose One Outcome</div>
+            <div class="tooltip" style="margin-bottom:8px;">${displayName(daoA)} + ${displayName(daoB)} can become several valid paths. Choose the one that should be canon.</div>
+            <div class="library-list">${cards}</div>
+          `, { locked: true });
+          const root = document.getElementById("modalRoot");
+          if (!root) return reject(new Error("Modal root missing"));
+          root.querySelectorAll("button[data-supportive-pick]").forEach((btn) => {
+            btn.onclick = () => {
+              const idx = Number(btn.getAttribute("data-supportive-pick"));
+              closeModal();
+              if (!Number.isFinite(idx)) return reject(new Error("Invalid supportive choice"));
+              return resolve(idx);
+            };
+          });
+        });
       }
 
       function getDef(instanceOrName) {
@@ -2538,7 +2624,21 @@
           } else if (state.discoveredCombinations[key]) {
             resultDef = state.discoveredCombinations[key];
           } else {
-            const oracle = await callOracle(daoA, daoB, targetTier);
+            let oracle;
+            if (state.playMode === "supportive") {
+              const candidatePayload = await requestSupportiveCandidates(daoA, daoB, targetTier);
+              if (candidatePayload && candidatePayload.result) {
+                oracle = candidatePayload.result;
+              } else {
+                const options = Array.isArray(candidatePayload?.options) ? candidatePayload.options : [];
+                if (!options.length || !candidatePayload?.draftId) throw new Error("No supportive options available");
+                const selectedIdx = await chooseSupportiveCandidateModal(options, daoA, daoB, targetTier);
+                const selected = await selectSupportiveCandidate(candidatePayload.draftId, selectedIdx);
+                oracle = selected || options[selectedIdx];
+              }
+            } else {
+              oracle = await callOracle(daoA, daoB, targetTier);
+            }
             resultDef = { ...oracle, parentA: daoA.name, parentB: daoB.name, echoPassives: buildEchoes(daoA, daoB), isNameless: false, isReturnedSeed: false };
             state.discoveredCombinations[key] = resultDef;
             state.canonicalDaos[resultDef.name] = resultDef;
@@ -2794,7 +2894,7 @@
           const isHighwayYin = def.tier === 1 && YIN_HIGHWAY.has(def.name);
           const highwayClass = isHighwayYang ? "highway-yang" : (isHighwayYin ? "highway-yin" : "");
           let polarityHtml = "";
-          if (stageUnlocked(10) && def.tier >= 2) {
+          if (stageUnlocked(11) && def.tier >= 2) {
             const score = polarityScore(def);
             const maxScore = 10;
             const clamped = Math.max(-maxScore, Math.min(maxScore, score));
@@ -3070,7 +3170,7 @@
         const reasonEl = document.getElementById("forgeReason");
         const libraryUnlocked = stageUnlocked(3);
         const masteryUnlocked = stageUnlocked(6);
-        const seedsUnlocked = stageUnlocked(11);
+        const seedsUnlocked = stageUnlocked(12);
         if (libraryBtn) {
           libraryBtn.disabled = !libraryUnlocked;
           libraryBtn.title = libraryUnlocked ? "Library" : "Unlocks after your first discovery.";
@@ -3244,7 +3344,7 @@
         const label = daoA && daoB ? resonanceScore(daoA, daoB) : "Neutral";
         const pill = document.getElementById("resonance-indicator");
         if (pill) {
-          if (!stageUnlocked(8)) { pill.classList.add("resonance-locked"); pill.textContent = "Locked"; pill.className = "resonance-pill res-neutral resonance-locked"; }
+          if (!stageUnlocked(9)) { pill.classList.add("resonance-locked"); pill.textContent = "Locked"; pill.className = "resonance-pill res-neutral resonance-locked"; }
           else { pill.classList.remove("resonance-locked"); pill.textContent = label; pill.className = "resonance-pill " + (label === "Resonance" ? "res-resonance" : label === "Discord" ? "res-discord" : label === "Chaos Surge" ? "res-chaos" : "res-neutral"); }
         }
         const forgeBtn = document.getElementById("forgeBtn");
@@ -3343,6 +3443,15 @@
                 <span class="chip">${def.harmonyClass}</span>
               </div>`
             : "";
+          const voteKey = def ? `${def.name}|${def.tier}` : "";
+          const voted = !!(voteKey && state.daoVoteLedger && state.daoVoteLedger[voteKey]);
+          const voteHtml = (def && state.playMode === "supportive")
+            ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                 <span class="tooltip">Does this Dao name make sense?</span>
+                 <button data-vote-dao="${suffix}" data-vote-value="up" ${voted ? "disabled" : ""}>👍 Upvote</button>
+                 <button data-vote-dao="${suffix}" data-vote-value="down" ${voted ? "disabled" : ""}>👎 Downvote</button>
+               </div>`
+            : "";
 
           return `
             ${def ? `<div class="serif" style="font-size:24px;">${title}</div>` : `<div class="serif" style="font-size:20px;color:var(--muted);">${title}</div>`}
@@ -3359,9 +3468,10 @@
               </details>
             ` : ""}
             <div style="display:flex;gap:8px;flex-wrap:wrap; margin-top:6px;">
-              ${stageUnlocked(11) && canReturn ? `<button id="returnBtn${suffix}" class="return-to-source-btn">Return to Source (復)</button>` : ""}
+              ${stageUnlocked(12) && canReturn ? `<button id="returnBtn${suffix}" class="return-to-source-btn">Return to Source (復)</button>` : ""}
               ${def ? `<button id="activateDaoBtn${suffix}" class="activate-dao-btn">Activate (Consume)</button>` : ""}
             </div>
+            ${voteHtml}
           `;
         }
 
@@ -3387,6 +3497,17 @@
 
         const btnActivateB = document.getElementById("activateDaoBtnB");
         if (btnActivateB && instB) btnActivateB.onclick = () => confirmActivate(instB.id);
+        const voteBtns = body.querySelectorAll("button[data-vote-dao][data-vote-value]");
+        voteBtns.forEach((btn) => {
+          btn.onclick = async () => {
+            const slot = btn.getAttribute("data-vote-dao");
+            const voteValue = btn.getAttribute("data-vote-value");
+            const def = slot === "A" ? defA : defB;
+            if (!def || (voteValue !== "up" && voteValue !== "down")) return;
+            await submitDaoVote(def, voteValue);
+            renderInfoPanel();
+          };
+        });
 
       }
       function renderHarmonyWidget() {
@@ -3453,7 +3574,7 @@
         return { yangCount, yinCount, neutralCount, yangPercent, yinPercent: 100 - yangPercent };
       }
       function renderConvergenceCompass() {
-        if (!stageUnlocked(10)) return "";
+        if (!stageUnlocked(11)) return "";
         const { yangCount, yinCount, neutralCount, yangPercent, yinPercent } = getConvergenceCompassData();
         const balance = yangPercent > 65 ? "Strongly Yang — Creation path" : yangPercent < 35 ? "Strongly Yin — Oblivion path" : yangPercent > 52 ? "Yang-leaning" : yangPercent < 48 ? "Yin-leaning" : "Balanced — both paths open";
         return `
@@ -3581,6 +3702,52 @@
         const closeBtn = document.getElementById("paradoxIntroCloseBtn");
         if (closeBtn) closeBtn.onclick = closeModal;
       }
+      function openPlayModeModalIfNeeded() {
+        if (state.playMode === "simple" || state.playMode === "supportive") return false;
+        showModal(`
+          <div class="serif" style="font-size:24px;">Choose Your Cultivation Style</div>
+          <div class="tooltip" style="margin:8px 0 12px;">
+            This choice appears once at the start of a new cycle. You can change it later in Options.
+          </div>
+          <div style="display:grid;gap:10px;">
+            <div class="library-item">
+              <div><strong>Simple Mode</strong></div>
+              <div style="color:#b8afcf;">Use the classic flow. Every new Dao merger generates one outcome and saves it immediately as canon for that pair.</div>
+              <div class="tooltip" style="margin-top:6px;">Best if you want faster runs with fewer decisions.</div>
+              <div style="margin-top:6px;"><button id="chooseSimpleModeBtn">Choose Simple</button></div>
+            </div>
+            <div class="library-item">
+              <div><strong>Supportive Mode</strong></div>
+              <div style="color:#b8afcf;">When a merger is new, the oracle generates 3 candidate Dao outcomes. You pick which one becomes canon for that pair.</div>
+              <div class="tooltip" style="margin-top:6px;">You can also upvote/downvote Dao names in the Info panel to flag quality.</div>
+              <div style="margin-top:6px;"><button id="chooseSupportiveModeBtn">Choose Supportive</button></div>
+            </div>
+          </div>
+        `, { locked: true });
+        const simpleBtn = document.getElementById("chooseSimpleModeBtn");
+        const supportiveBtn = document.getElementById("chooseSupportiveModeBtn");
+        if (simpleBtn) {
+          simpleBtn.onclick = () => {
+            state.playMode = "simple";
+            saveState();
+            closeModal();
+            rerenderUI();
+            if ((state.tutorialStage || 0) === 0 && state.discoveryLog.length === 0) runOpeningSequence();
+            else checkTutorialAdvancement();
+          };
+        }
+        if (supportiveBtn) {
+          supportiveBtn.onclick = () => {
+            state.playMode = "supportive";
+            saveState();
+            closeModal();
+            rerenderUI();
+            if ((state.tutorialStage || 0) === 0 && state.discoveryLog.length === 0) runOpeningSequence();
+            else checkTutorialAdvancement();
+          };
+        }
+        return true;
+      }
       function resetGame() {
         const confirmed = window.confirm("Reset your cultivation cycle? This clears current progress.");
         if (!confirmed) return;
@@ -3636,6 +3803,7 @@
       }
       function openOptionsModal() {
         const devEnabled = !!state.developerNoSummonCooldown;
+        const currentMode = state.playMode === "supportive" ? "supportive" : "simple";
         showModal(`
           <div class="serif" style="font-size:22px;">Options</div>
           <div class="tooltip" style="margin-bottom:10px;">Manage saves or reset your current cycle.</div>
@@ -3644,6 +3812,17 @@
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <input id="importSaveFileInput" type="file" accept=".json,application/json" />
               <button id="importSaveBtn">Import Save</button>
+            </div>
+            <div class="library-item" style="display:grid;gap:6px;">
+              <div><strong>Play Mode</strong> <span class="chip">${currentMode === "supportive" ? "Supportive" : "Simple"}</span></div>
+              <div class="tooltip">Simple = one generated result. Supportive = choose from 3 outcomes on new merges + voting.</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <select id="playModeSelect">
+                  <option value="simple" ${currentMode === "simple" ? "selected" : ""}>Simple</option>
+                  <option value="supportive" ${currentMode === "supportive" ? "selected" : ""}>Supportive</option>
+                </select>
+                <button id="applyPlayModeBtn">Apply Mode</button>
+              </div>
             </div>
             <button id="developerModeBtn" class="hint-btn">Developer Mode: ${devEnabled ? "ON" : "OFF"} (No Summon Cooldown)</button>
             <button id="optionsResetBtn" class="reset-btn">Reset Game</button>
@@ -3701,6 +3880,21 @@
           bindSeedManifestButton();
           showToast(`Developer mode ${state.developerNoSummonCooldown ? "enabled" : "disabled"}: Summon Dao cooldown ${state.developerNoSummonCooldown ? "removed" : "restored"}.`, "info");
           openOptionsModal();
+        };
+        const applyPlayModeBtn = document.getElementById("applyPlayModeBtn");
+        if (applyPlayModeBtn) applyPlayModeBtn.onclick = () => {
+          const select = document.getElementById("playModeSelect");
+          if (!(select instanceof HTMLSelectElement)) return;
+          const nextMode = select.value === "supportive" ? "supportive" : "simple";
+          if (state.playMode === nextMode) {
+            showToast("Play mode is already set.", "info");
+            return;
+          }
+          state.playMode = nextMode;
+          saveState();
+          showToast(`Play mode switched to ${nextMode}.`, "success");
+          closeModal();
+          rerenderUI();
         };
       }
       function confirmReturn(instanceId) {
@@ -4138,11 +4332,17 @@
               if (!stageUnlocked(3)) { showToast("Library unlocks after your first discovery.", "info"); return; }
               state.middlePanelTab = "library"; rerenderUI();
             } else if (target.id === "middleSeedsTabBtn") {
-              if (!stageUnlocked(11)) { showToast("Seeds unlock after Return to Source opens.", "info"); return; }
-              state.middlePanelTab = "seeds"; rerenderUI();
+              if (!stageUnlocked(12)) { showToast("Seeds unlock after Return to Source opens.", "info"); return; }
+              state.middlePanelTab = "seeds";
+              state.tutorialActions.openedSeedsTab = true;
+              checkTutorialAdvancement();
+              rerenderUI();
             } else if (target.id === "middleMasteryTabBtn") {
               if (!stageUnlocked(6)) { showToast("Mastery unlocks after reading a Tier 2+ Dao.", "info"); return; }
-              state.middlePanelTab = "mastery"; rerenderUI();
+              state.middlePanelTab = "mastery";
+              state.tutorialActions.openedMasteryTab = true;
+              checkTutorialAdvancement();
+              rerenderUI();
             }
             else if (target.id === "seedResetViewBtn") {
               if (seedGraphCy) seedGraphCy.fit(undefined, 24);
@@ -4186,7 +4386,15 @@
         if (tutorialTopBtn) tutorialTopBtn.onclick = openTutorialHistoryModal;
         document.getElementById("tutorialDismissBtn").onclick = () => {
           // Skip means fully unlock tutorial-gated systems immediately.
-          state.tutorialStage = 12;
+          state.tutorialStage = FINAL_TUTORIAL_STAGE;
+          if (!state.tutorialActions || typeof state.tutorialActions !== "object") state.tutorialActions = {};
+          state.tutorialActions.firstCardClick = true;
+          state.tutorialActions.selectedTwoDaos = true;
+          state.tutorialActions.openedInfoPanel = true;
+          state.tutorialActions.openedMasteryTab = true;
+          state.tutorialActions.openedSeedsTab = true;
+          state.tutorialActions.activatedFirstDao = true;
+          state.tutorialActions.replacedActiveDao = true;
           state.tutorialDismissed = true;
           saveState();
           rerenderUI();
@@ -4206,6 +4414,35 @@
           const data = await response.json();
           showToast("Oracle hint: " + String(data.hint || "No omen answered.").slice(0, 120), "info");
         } catch { showToast("The oracle is silent.", "danger"); }
+      }
+      async function submitDaoVote(def, voteValue) {
+        if (!def || !def.name || !def.tier) return;
+        const key = `${def.name}|${def.tier}`;
+        if (!state.daoVoteLedger || typeof state.daoVoteLedger !== "object") state.daoVoteLedger = {};
+        if (state.daoVoteLedger[key]) {
+          showToast("You already voted on this Dao.", "info");
+          return;
+        }
+        try {
+          await ensureSessionToken();
+          const response = await fetch(`${BACKEND_URL}/api/dao/vote`, {
+            method: "POST",
+            headers: backendHeaders(true),
+            body: JSON.stringify({
+              daoName: def.name,
+              tier: def.tier,
+              vote: voteValue,
+              pairKey: pairKey(def.parentA || "", def.parentB || ""),
+              sourceMode: state.playMode === "supportive" ? "supportive" : "simple"
+            })
+          });
+          if (!response.ok) throw new Error("Vote request failed");
+          state.daoVoteLedger[key] = voteValue;
+          saveState();
+          showToast("Vote recorded. Thank you.", "success");
+        } catch {
+          showToast("Could not record vote right now.", "warning");
+        }
       }
 
       function audioCtx() { try { return new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
@@ -4273,6 +4510,7 @@
         startDecayLoop();
         rerenderUI();
         renderTutorialBar();
+        if (openPlayModeModalIfNeeded()) return;
         if ((state.tutorialStage || 0) === 0 && state.discoveryLog.length === 0) {
           runOpeningSequence();
         } else {

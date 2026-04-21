@@ -290,13 +290,16 @@
       border-radius: 12px;
       min-height: var(--card-min-h);
       background: #1d1830;
-      padding: 8px;
+      padding: 8px 8px 36px;
       display: grid;
       gap: 6px;
       transition: transform var(--transition), border-color var(--transition);
       cursor: pointer;
       position: relative;
       overflow: hidden;
+    }
+    .dao-card .polarity-bar-container {
+      margin-bottom: 18px;
     }
     .fav-toggle {
       position: absolute;
@@ -1420,6 +1423,8 @@
       let starterRevealCount = 2;
       let showNarrative = false;
       let lastHeavenToastKey = "";
+      let lastTierMismatchToastKey = "";
+      let lastUnstableBlockedToastKey = "";
       let lastEarthToastCount = -1;
       let seedCooldownUiInterval = null;
       let seedGraphCy = null;
@@ -2409,13 +2414,13 @@
             <div class="serif" style="font-size:22px;">Supportive Mode: Choose One Outcome</div>
             <div class="tooltip" style="margin-bottom:8px;">${displayName(daoA)} + ${displayName(daoB)} can become several valid paths. Choose the one that should be canon.</div>
             <div class="library-list">${cards}</div>
-          `, { locked: true });
+          `, { locked: true, requireSelection: true });
           const root = document.getElementById("modalRoot");
           if (!root) return reject(new Error("Modal root missing"));
           root.querySelectorAll("button[data-supportive-pick]").forEach((btn) => {
             btn.onclick = () => {
               const idx = Number(btn.getAttribute("data-supportive-pick"));
-              closeModal();
+              closeModal(true);
               if (!Number.isFinite(idx)) return reject(new Error("Invalid supportive choice"));
               return resolve(idx);
             };
@@ -2442,10 +2447,40 @@
           state.selectedIds = [state.selectedIds[1], id];
         }
         if (state.selectedIds.length >= 2) state.tutorialActions.selectedTwoDaos = true;
-        const [primary] = selectedInstances();
+        const selected = selectedInstances();
+        const [primary] = selected;
         if (primary) {
           const def = getDef(primary);
           if (def && def.tier >= 2) state.tutorialActions.openedInfoPanel = true;
+        }
+        if (selected.length >= 2) {
+          const daoA = getDef(selected[0]);
+          const daoB = getDef(selected[1]);
+          if (daoA && daoB && daoA.tier !== daoB.tier) {
+            const mismatchKey = pairKey(`${daoA.name}|${daoA.tier}`, `${daoB.name}|${daoB.tier}`);
+            if (lastTierMismatchToastKey !== mismatchKey) {
+              lastTierMismatchToastKey = mismatchKey;
+              showToast(`Warning: ${displayName(daoA)} (T${daoA.tier}) and ${displayName(daoB)} (T${daoB.tier}) are different tiers. This creates an unstable synthesis.`, "warning");
+            }
+          } else {
+            lastTierMismatchToastKey = "";
+          }
+          const blockedByUnstable = !!(
+            (daoA && (daoA.affinity === "Paradox" || daoA.cannotMergeAgain))
+            || (daoB && (daoB.affinity === "Paradox" || daoB.cannotMergeAgain))
+          );
+          if (blockedByUnstable && daoA && daoB) {
+            const unstableKey = pairKey(`${daoA.name}|${daoA.tier}|${daoA.affinity}`, `${daoB.name}|${daoB.tier}|${daoB.affinity}`);
+            if (lastUnstableBlockedToastKey !== unstableKey) {
+              lastUnstableBlockedToastKey = unstableKey;
+              showToast("Warning: This merge is blocked because unstable (Paradox) Daos collapse under recombination. Consume it in an Active slot or let it decay instead.", "warning");
+            }
+          } else {
+            lastUnstableBlockedToastKey = "";
+          }
+        } else {
+          lastTierMismatchToastKey = "";
+          lastUnstableBlockedToastKey = "";
         }
         saveState();
         checkTutorialAdvancement();
@@ -3123,6 +3158,8 @@
           const rows = tierDefs.map((def) => {
             const count = getDaoMasteryCount(def.name);
             const label = masteryTierLabel(count);
+            const nextTarget = count < 100 ? 100 : (count < 200 ? 200 : null);
+            const progressText = nextTarget ? `${count}/${nextTarget}` : `${count}/200+`;
             const daoCollapsed = state.masteryFoldAll || !!state.masteryCollapsedDaos[def.name];
             const canTargetManifest = count >= 100;
             const isPeak = count >= 200;
@@ -3136,10 +3173,12 @@
                   <span class="chip">${HARMONY_ICON[def.harmonyClass] || "·"} ${def.harmonyClass}</span>
                   <span class="chip">${def.affinity}</span>
                   <span class="chip">M${count}</span>
+                  <span class="chip">${progressText}</span>
                   <span class="chip">${label}</span>
                 </div>
                 ${daoCollapsed ? "" : `
                   <div class="mastery-bar"><div class="mastery-bar-fill" style="width:${Math.max(0, Math.min(100, (Math.min(200, count) / 200) * 100))}%"></div></div>
+                  <div class="tooltip">Mastery increases when this Dao is created (forged or manifested).</div>
                   ${canTargetManifest ? `
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
                       <button data-manifest-specific="${def.name}" ${freeSpace <= 0 ? "disabled" : ""}>Manifest</button>
@@ -3217,7 +3256,7 @@
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <button data-mastery-fold-all="1">Fold All</button>
               <button data-mastery-fold-all="0">Expand All</button>
-              <span class="tooltip">Compact mastery view by tier and Dao.</span>
+              <span class="tooltip">Mastery grows when a Dao is created (forged or manifested). Use this view to track exact thresholds.</span>
             </div>
             <div id="middleMasteryList" class="mastery-list"></div>
           </div>
@@ -3633,11 +3672,15 @@
         const root = document.getElementById("modalRoot");
         root.innerHTML = `<div class="modal">${html}</div>`;
         root.classList.add("show");
+        if (options && options.requireSelection) root.dataset.requireSelection = "1";
+        else delete root.dataset.requireSelection;
         if (options && options.locked) return;
         root.onclick = (e) => { if (e.target === root) closeModal(); };
       }
-      function closeModal() {
+      function closeModal(force) {
         const root = document.getElementById("modalRoot");
+        if (!force && root.dataset.requireSelection === "1") return;
+        delete root.dataset.requireSelection;
         root.classList.remove("show");
         root.innerHTML = "";
       }

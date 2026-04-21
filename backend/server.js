@@ -15,6 +15,7 @@ const {
   OPENROUTER_API_KEY,
   OPENROUTER_MODEL = "anthropic/claude-sonnet-4",
   ALLOWED_ORIGIN,
+  ALLOWED_ORIGINS = "",
   ALLOW_NULL_ORIGIN = "false",
   SERVER_AUTH_TOKEN,
   TRUST_PROXY_HOPS = "1",
@@ -24,8 +25,16 @@ const {
 
 if (!DATABASE_URL) throw new Error("Missing DATABASE_URL");
 if (!OPENROUTER_API_KEY) throw new Error("Missing OPENROUTER_API_KEY");
-if (!ALLOWED_ORIGIN) throw new Error("Missing ALLOWED_ORIGIN");
 if (!SERVER_AUTH_TOKEN) throw new Error("Missing SERVER_AUTH_TOKEN");
+const parsedAllowedOrigins = Array.from(new Set(
+  [
+    ...String(ALLOWED_ORIGINS || "").split(",").map((x) => x.trim()).filter(Boolean),
+    ...(ALLOWED_ORIGIN ? [String(ALLOWED_ORIGIN).trim()] : [])
+  ].filter(Boolean)
+));
+if (!parsedAllowedOrigins.length) {
+  throw new Error("Missing allowed origin configuration. Set ALLOWED_ORIGIN or ALLOWED_ORIGINS.");
+}
 
 // ---------------------------------------------------------------------------
 // Tier 1 seed Daos — concrete natural elements only.
@@ -71,7 +80,7 @@ app.use(cors({
   origin(origin, cb) {
     if (!origin) return cb(null, true);
     if (origin === "null" && ALLOW_NULL_ORIGIN === "true") return cb(null, true);
-    if (origin === ALLOWED_ORIGIN) return cb(null, true);
+    if (parsedAllowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error("Origin not allowed"));
   },
   methods: ["GET", "POST"],
@@ -95,7 +104,7 @@ const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
   timeout: 10000,
   defaultHeaders: {
-    "HTTP-Referer": ALLOWED_ORIGIN,
+    "HTTP-Referer": parsedAllowedOrigins[0],
     "X-Title": "Dao Synthesis Backend"
   }
 });
@@ -789,6 +798,12 @@ async function ensureTables() {
 }
 
 async function start() {
+  console.log("[startup] configuration", {
+    port: Number(PORT),
+    model: OPENROUTER_MODEL,
+    allowedOrigins: parsedAllowedOrigins,
+    allowNullOrigin: ALLOW_NULL_ORIGIN === "true"
+  });
   await ensureTables();
   app.listen(Number(PORT), () => {
     console.log(`Forge backend listening on port ${PORT}`);

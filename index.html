@@ -1128,7 +1128,8 @@
       "use strict";
 
       const SAVE_KEY = "dao_synthesis_save";
-      const BACKEND_URL = "https://oblivionandcreation.onrender.com";
+      const runtimeBackendUrl = typeof window.__BACKEND_URL__ === "string" ? window.__BACKEND_URL__.trim() : "";
+      const BACKEND_URL = runtimeBackendUrl || "https://oblivionandcreation.onrender.com";
       const VERSION = 12;
       const ONE_HOUR = 60 * 60 * 1000;
       const DECAY_TICK_MS = 5000;

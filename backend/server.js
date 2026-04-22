@@ -366,46 +366,10 @@ function unifyDaoIdentityFromExisting(firstResult, generatedResult) {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt building — tier-aware thematic register + affinity inheritance.
+// Prompt building — unified prompt strategy + affinity inheritance.
 // ---------------------------------------------------------------------------
 
-/**
- * Returns a thematic description for the target tier so the model understands
- * where in the concrete→abstract arc it is generating.
- */
-function getTierTheme(tier) {
-  return {
-    1: "concrete natural elements: fire, water, stone, wind, mist",
-    2: "simple natural forces and phenomena: tide, storm, drought, bloom",
-    3: "elemental interactions and early tensions: erosion, ignition, stillness",
-    4: "abstract natural principles: cycle, entropy, equilibrium, pressure",
-    5: "philosophical tensions and dualities: impermanence, resonance, void-echo",
-    6: "deep metaphysical concepts: dissolution, emergence, boundlessness",
-    7: "near-absolute principles: negation, totality, the formless",
-    8: "threshold concepts, one step from the absolute: the Unnamed, the Unborn, Pure Potential",
-    9: "the absolute poles of existence: Creation or Oblivion only"
-  }[tier] ?? "abstract philosophical concepts";
-}
-
-/**
- * Few-shot vocabulary anchors for high tiers where the model is most likely
- * to reach for generic fantasy words rather than the threshold-concept register.
- */
-function getHighTierExamples(tier) {
-  if (tier < 7) return "";
-  return `
-Examples of good names at this tier:
-- T7: "The Formless", "Negation", "Stillpoint", "Unbecoming", "The Hollow"
-- T8: "Pure Absence", "The Threshold", "Unnamed Potential", "The Unborn"
-- T9: "Creation" (Yang/Heaven) or "Oblivion" (Yin/Earth) — no other names are valid at T9
-
-Bad examples (too concrete or too generic-fantasy): "Shadow Flame", "Void Dragon", "Eternal Storm", "Dark Force"
-`;
-}
-
 function buildForgePrompt(daoA, daoB, tier, affinityA, affinityB, proposalCount = 1) {
-  const theme = getTierTheme(tier);
-  const highTierExamples = getHighTierExamples(tier);
   const multiProposal = Number(proposalCount) > 1;
   const outputShape = multiProposal
     ? `Return strict JSON only with this shape:
@@ -421,23 +385,17 @@ Return exactly ${proposalCount} proposals.`
     ? `\n- Parent affinities: ${affinityA} and ${affinityB}. Bias the output affinity toward the dominant parent affinity. If both parents share the same affinity, inherit it directly.`
     : "";
 
-  return `You are generating a Dao name for a cultivation game where Daos evolve from the concrete to the absolute.
+  return `You are generating a Dao name for a cultivation game.
 ${outputShape}
-
-The naming arc across tiers moves from concrete elements toward absolute concepts:
-- Low tiers (1-3): concrete elements and natural forces (Fire, Stone, Tide)
-- Mid tiers (4-6): abstract principles and metaphysical tensions (Entropy, Dissolution)
-- High tiers (7-8): near-absolute, nameless, threshold concepts (The Formless, Pure Absence)
-- Tier 9: only "Creation" (Yang) or "Oblivion" (Yin) — the two absolute poles${highTierExamples}
 Input:
 - daoA: ${daoA}
 - daoB: ${daoB}
 - target tier: ${tier}
-- thematic register for tier ${tier}: ${theme}${affinityContext}
+${affinityContext}
 
 Rules:
 - tier must equal ${tier}
-- name must feel like a natural conceptual evolution *beyond* both parents, fitting the thematic register above
+- name must feel like a natural conceptual evolution beyond both parents
 - name is ideally 1-2 words, max 60 chars — do not include the word "Dao"
 - description narrates HOW the two parent concepts dissolved into this new one (max 160 chars)
 - affinity: Yin, Yang, Neutral, or Paradox${affinityContext ? " — bias toward dominant parent" : ""}
@@ -582,7 +540,10 @@ app.post("/api/forge", readLimiter, async (req, res) => {
 
   try {
     const cached = await pool.query(
-      "SELECT result_json FROM forge_results WHERE pair_key = $1",
+      `SELECT fr.result_json
+         FROM forge_result_pairs fp
+         JOIN forge_results fr ON fr.result_name = fp.result_name
+        WHERE fp.pair_key = $1`,
       [key]
     );
     if (cached.rowCount > 0) {
@@ -614,7 +575,10 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
 
   try {
     const cached = await pool.query(
-      "SELECT result_json FROM forge_results WHERE pair_key = $1",
+      `SELECT fr.result_json
+         FROM forge_result_pairs fp
+         JOIN forge_results fr ON fr.result_name = fp.result_name
+        WHERE fp.pair_key = $1`,
       [key]
     );
     if (cached.rowCount > 0) {
@@ -625,14 +589,14 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
     console.log(`[forge] generating new key="${key}"`);
     // Pass parent affinities so the prompt can bias toward the dominant lineage.
     let generated = await callForgeModel(daoA, daoB, tier, affinityA, affinityB);
+    const generatedName = normalizeName(generated.name);
     const firstExistingByName = await pool.query(
       `SELECT result_json
          FROM forge_results
-        WHERE tier = $1
-          AND result_json->>'name' = $2
-        ORDER BY pair_key ASC
+        WHERE result_name = $1
+        ORDER BY created_at ASC NULLS LAST
         LIMIT 1`,
-      [tier, generated.name]
+      [generatedName]
     );
     if (firstExistingByName.rowCount > 0) {
       generated = unifyDaoIdentityFromExisting(firstExistingByName.rows[0].result_json, generated);
@@ -642,15 +606,25 @@ app.post("/api/forge/generate", generateLimiter, requireSessionScope("forge:gene
 
     await pool.query(
       `INSERT INTO forge_results
-        (pair_key, dao_a, dao_b, tier, result_json, generated_by_ip_hash)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-       ON CONFLICT (pair_key) DO NOTHING`,
-      [key, normalizeName(daoA), normalizeName(daoB), tier, JSON.stringify(generated), ipHash]
+        (result_name, dao_a, dao_b, result_json, generated_by_ip_hash)
+       VALUES ($1, $2, $3, $4::jsonb, $5)
+       ON CONFLICT (result_name) DO NOTHING`,
+      [generatedName, normalizeName(daoA), normalizeName(daoB), JSON.stringify(generated), ipHash]
+    );
+    await pool.query(
+      `INSERT INTO forge_result_pairs
+        (pair_key, result_name, dao_a, dao_b)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (pair_key) DO UPDATE
+         SET result_name = EXCLUDED.result_name,
+             dao_a = EXCLUDED.dao_a,
+             dao_b = EXCLUDED.dao_b`,
+      [key, generatedName, normalizeName(daoA), normalizeName(daoB)]
     );
 
     const inserted = await pool.query(
-      "SELECT result_json FROM forge_results WHERE pair_key = $1",
-      [key]
+      "SELECT result_json FROM forge_results WHERE result_name = $1",
+      [generatedName]
     );
     console.log(`[forge] generated and stored key="${key}" result="${inserted.rows[0]?.result_json?.name || "unknown"}"`);
     return res.json({ source: "generated", result: inserted.rows[0].result_json });
@@ -674,7 +648,10 @@ app.post("/api/forge/supportive-options", generateLimiter, requireSessionScope("
   const key = pairKey(daoA, daoB, tier);
   try {
     const cached = await pool.query(
-      "SELECT result_json FROM forge_results WHERE pair_key = $1",
+      `SELECT fr.result_json
+         FROM forge_result_pairs fp
+         JOIN forge_results fr ON fr.result_name = fp.result_name
+        WHERE fp.pair_key = $1`,
       [key]
     );
     if (cached.rowCount > 0) {
@@ -685,14 +662,14 @@ app.post("/api/forge/supportive-options", generateLimiter, requireSessionScope("
     const options = [];
     for (let i = 0; i < optionsRaw.length; i += 1) {
       let candidate = optionsRaw[i];
+      const candidateName = normalizeName(candidate.name);
       const firstExistingByName = await pool.query(
         `SELECT result_json
            FROM forge_results
-          WHERE tier = $1
-            AND result_json->>'name' = $2
-          ORDER BY pair_key ASC
+          WHERE result_name = $1
+          ORDER BY created_at ASC NULLS LAST
           LIMIT 1`,
-        [tier, candidate.name]
+        [candidateName]
       );
       if (firstExistingByName.rowCount > 0) {
         candidate = unifyDaoIdentityFromExisting(firstExistingByName.rows[0].result_json, candidate);
@@ -705,9 +682,9 @@ app.post("/api/forge/supportive-options", generateLimiter, requireSessionScope("
     for (let i = 0; i < options.length; i += 1) {
       await pool.query(
         `INSERT INTO forge_alternative_results
-          (draft_id, pair_key, dao_a, dao_b, tier, option_index, result_json, selected, generated_by_ip_hash)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, false, $8)`,
-        [draftId, key, normalizeName(daoA), normalizeName(daoB), tier, i, JSON.stringify(options[i]), ipHash]
+          (draft_id, pair_key, dao_a, dao_b, option_index, result_json, selected, generated_by_ip_hash)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, false, $7)`,
+        [draftId, key, normalizeName(daoA), normalizeName(daoB), i, JSON.stringify(options[i]), ipHash]
       );
     }
     return res.json({ source: "generated", draftId, pairKey: key, options });
@@ -729,7 +706,7 @@ app.post("/api/forge/supportive-select", generateLimiter, requireSessionScope("f
   const { draftId, selectedOptionIndex } = parsed.data;
   try {
     const draftRows = await pool.query(
-      `SELECT pair_key, dao_a, dao_b, tier, option_index, result_json
+      `SELECT pair_key, dao_a, dao_b, option_index, result_json
          FROM forge_alternative_results
         WHERE draft_id = $1
         ORDER BY option_index ASC`,
@@ -739,20 +716,31 @@ app.post("/api/forge/supportive-select", generateLimiter, requireSessionScope("f
     const picked = draftRows.rows.find((r) => Number(r.option_index) === selectedOptionIndex);
     if (!picked) return res.status(400).json({ error: "InvalidSelectionIndex" });
 
+    const pickedName = normalizeName(picked.result_json?.name);
     const existing = await pool.query(
-      "SELECT result_json FROM forge_results WHERE pair_key = $1",
-      [picked.pair_key]
+      "SELECT result_json FROM forge_results WHERE result_name = $1",
+      [pickedName]
     );
     if (existing.rowCount === 0) {
       const ipHash = hashIp(getClientIp(req));
       await pool.query(
         `INSERT INTO forge_results
-          (pair_key, dao_a, dao_b, tier, result_json, generated_by_ip_hash)
-         VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-         ON CONFLICT (pair_key) DO NOTHING`,
-        [picked.pair_key, picked.dao_a, picked.dao_b, picked.tier, JSON.stringify(picked.result_json), ipHash]
+          (result_name, dao_a, dao_b, result_json, generated_by_ip_hash)
+         VALUES ($1, $2, $3, $4::jsonb, $5)
+         ON CONFLICT (result_name) DO NOTHING`,
+        [pickedName, picked.dao_a, picked.dao_b, JSON.stringify(picked.result_json), ipHash]
       );
     }
+    await pool.query(
+      `INSERT INTO forge_result_pairs
+        (pair_key, result_name, dao_a, dao_b)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (pair_key) DO UPDATE
+         SET result_name = EXCLUDED.result_name,
+             dao_a = EXCLUDED.dao_a,
+             dao_b = EXCLUDED.dao_b`,
+      [picked.pair_key, pickedName, picked.dao_a, picked.dao_b]
+    );
     await pool.query(
       `UPDATE forge_alternative_results
           SET selected = (option_index = $2)
@@ -760,8 +748,8 @@ app.post("/api/forge/supportive-select", generateLimiter, requireSessionScope("f
       [draftId, selectedOptionIndex]
     );
     const inserted = await pool.query(
-      "SELECT result_json FROM forge_results WHERE pair_key = $1",
-      [picked.pair_key]
+      "SELECT result_json FROM forge_results WHERE result_name = $1",
+      [pickedName]
     );
     return res.json({ result: inserted.rows[0]?.result_json || picked.result_json });
   } catch (err) {
@@ -779,14 +767,14 @@ app.post("/api/dao/vote", generateLimiter, requireSessionScope("forge:vote"), as
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid vote payload" });
   }
-  const { daoName, tier, vote, pairKey, sourceMode } = parsed.data;
+  const { daoName, vote, pairKey, sourceMode } = parsed.data;
   try {
     const ipHash = hashIp(getClientIp(req));
     await pool.query(
       `INSERT INTO forge_name_votes
-        (dao_name, tier, vote_value, pair_key, source_mode, voted_by_ip_hash)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [normalizeName(daoName), tier, vote === "up" ? 1 : -1, pairKey || null, sourceMode || null, ipHash]
+        (dao_name, vote_value, pair_key, source_mode, voted_by_ip_hash)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [normalizeName(daoName), vote === "up" ? 1 : -1, pairKey || null, sourceMode || null, ipHash]
     );
     return res.json({ ok: true });
   } catch (err) {
@@ -903,13 +891,60 @@ app.use((err, req, res, next) => {
 
 async function ensureTables() {
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS forge_results (
+      pair_key TEXT,
+      result_name TEXT,
+      dao_a TEXT NOT NULL,
+      dao_b TEXT NOT NULL,
+      tier INTEGER,
+      result_json JSONB NOT NULL,
+      generated_by_ip_hash TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query("ALTER TABLE forge_results ADD COLUMN IF NOT EXISTS result_name TEXT");
+  await pool.query("UPDATE forge_results SET result_name = COALESCE(result_name, NULLIF(result_json->>'name', '')) WHERE result_name IS NULL");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS forge_result_pairs (
+      pair_key TEXT PRIMARY KEY,
+      result_name TEXT NOT NULL,
+      dao_a TEXT NOT NULL,
+      dao_b TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      FOREIGN KEY (result_name) REFERENCES forge_results(result_name) ON DELETE CASCADE
+    )
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_result_pairs_result_name ON forge_result_pairs(result_name)");
+  await pool.query(`
+    INSERT INTO forge_result_pairs (pair_key, result_name, dao_a, dao_b)
+    SELECT fr.pair_key, fr.result_name, fr.dao_a, fr.dao_b
+      FROM forge_results fr
+     WHERE fr.pair_key IS NOT NULL
+       AND fr.result_name IS NOT NULL
+    ON CONFLICT (pair_key) DO NOTHING
+  `);
+  await pool.query(`
+    DELETE FROM forge_results fr
+     USING (
+       SELECT ctid,
+              ROW_NUMBER() OVER (PARTITION BY result_name ORDER BY created_at ASC NULLS LAST, ctid) AS rn
+         FROM forge_results
+        WHERE result_name IS NOT NULL
+     ) d
+     WHERE fr.ctid = d.ctid
+       AND d.rn > 1
+  `);
+  await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_forge_results_result_name_unique ON forge_results(result_name)");
+  await pool.query("ALTER TABLE forge_results DROP COLUMN IF EXISTS pair_key");
+  await pool.query("ALTER TABLE forge_results DROP COLUMN IF EXISTS tier");
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS forge_alternative_results (
       id BIGSERIAL PRIMARY KEY,
       draft_id TEXT NOT NULL,
       pair_key TEXT NOT NULL,
       dao_a TEXT NOT NULL,
       dao_b TEXT NOT NULL,
-      tier INTEGER NOT NULL,
       option_index INTEGER NOT NULL,
       result_json JSONB NOT NULL,
       selected BOOLEAN NOT NULL DEFAULT false,
@@ -917,13 +952,13 @@ async function ensureTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query("ALTER TABLE forge_alternative_results DROP COLUMN IF EXISTS tier");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_alternative_results_draft_id ON forge_alternative_results(draft_id)");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_alternative_results_pair_key ON forge_alternative_results(pair_key)");
   await pool.query(`
     CREATE TABLE IF NOT EXISTS forge_name_votes (
       id BIGSERIAL PRIMARY KEY,
       dao_name TEXT NOT NULL,
-      tier INTEGER NOT NULL,
       vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)),
       pair_key TEXT,
       source_mode TEXT,
@@ -931,7 +966,8 @@ async function ensureTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_dao_name_tier ON forge_name_votes(dao_name, tier)");
+  await pool.query("ALTER TABLE forge_name_votes DROP COLUMN IF EXISTS tier");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_dao_name ON forge_name_votes(dao_name)");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_created_at ON forge_name_votes(created_at DESC)");
   await pool.query(`
     CREATE TABLE IF NOT EXISTS masters_quest_progress (

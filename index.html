@@ -127,9 +127,9 @@
           </div>
           <div id="higherTierManifestArea" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button id="tierManifestBtn2" class="hint-btn">Manifest T2 Dao</button>
-              <button id="tierManifestBtn3" class="hint-btn">Manifest T3 Dao</button>
-              <button id="tierManifestBtn4" class="hint-btn">Manifest T4 Dao</button>
+              <button id="tierManifestBtn2" class="hint-btn">Manifest Advanced Dao</button>
+              <button id="tierManifestBtn3" class="hint-btn">Manifest Refined Dao</button>
+              <button id="tierManifestBtn4" class="hint-btn">Manifest Transcendent Dao</button>
             </div>
             <div class="seed-cooldown-track"><div id="higherTierManifestCdFillForge" class="seed-cooldown-fill"></div></div>
             <div class="tooltip" id="higherTierManifestCdTextForge"></div>
@@ -194,15 +194,6 @@
       const FILTERS = [
         { id: "all", label: "All" },
         { id: "favorites", label: "Favorites" },
-        { id: "t1", label: "T1" },
-        { id: "t2", label: "T2" },
-        { id: "t3", label: "T3" },
-        { id: "t4", label: "T4" },
-        { id: "t5", label: "T5" },
-        { id: "t6", label: "T6" },
-        { id: "t7", label: "T7" },
-        { id: "t8", label: "T8" },
-        { id: "t9", label: "T9" },
         { id: "heaven", label: "Heaven" },
         { id: "earth", label: "Earth" },
         { id: "human", label: "Human" },
@@ -670,7 +661,7 @@
           && harmonyReturns >= harmonyReturnsNeeded
           && (highTierRequirement === 0 || highTierReturns >= highTierRequirement);
         const highTierHint = highTierRequirement > 0
-          ? ` Return ${highTierRequirement} Dao(s) of Tier ${highTierTarget}+ (${highTierReturns}/${highTierRequirement}).`
+          ? ` Return ${highTierRequirement} higher-band Dao(s) (${highTierReturns}/${highTierRequirement}).`
           : "";
         return { met, hint: "" };
       }
@@ -1044,8 +1035,8 @@
       }
 
       function activeSlotUnlockText(slotIndex) {
-        if (slotIndex === 1) return "Locked (unlocks at T3)";
-        if (slotIndex === 2) return "Locked (unlocks at T6)";
+        if (slotIndex === 1) return "Locked (unlocks at later gate)";
+        if (slotIndex === 2) return "Locked (unlocks at final gate)";
         return "";
       }
 
@@ -1080,7 +1071,7 @@
                 const seedName = TIER1_SEEDS.find(([n]) => echoKey(n) === key)?.[0] || key;
                 return count > 1 ? `${seedName} x${count}` : seedName;
               });
-            return `<div class="active-dao-slot filled"><div class="active-dao-title">Slot ${idx + 1}</div><div class="serif active-dao-name">${displayName(slot)}</div><div class="chip">T${slot.tier} ${slot.affinity}</div><div class="active-dao-echoes">${stackEntries.join(" • ") || "No base stacks"}</div></div>`;
+            return `<div class="active-dao-slot filled"><div class="active-dao-title">Slot ${idx + 1}</div><div class="serif active-dao-name">${displayName(slot)}</div><div class="chip">${slot.affinity}</div><div class="active-dao-echoes">${stackEntries.join(" • ") || "No base stacks"}</div></div>`;
           })
           .join("");
 
@@ -1486,7 +1477,7 @@
             const normalized = enforceHighTierPolarity(normalizeResult(opt || {}, targetTier, daoA, daoB), daoA, daoB, targetTier);
             return `
               <div class="library-item" style="display:grid;gap:6px;">
-                <div><strong>Option ${idx + 1}: ${displayName(normalized)}</strong> — T${normalized.tier} ${normalized.affinity} / ${normalized.harmonyClass}</div>
+                <div><strong>Option ${idx + 1}: ${displayName(normalized)}</strong> — ${normalized.affinity} / ${normalized.harmonyClass}</div>
                 <div style="color:#5a3a1a;">${normalized.description || ""}</div>
                 <div><button data-supportive-pick="${idx}">Choose this Dao</button></div>
               </div>
@@ -1542,7 +1533,7 @@
             const mismatchKey = pairKey(`${daoA.name}|${daoA.tier}`, `${daoB.name}|${daoB.tier}`);
             if (lastTierMismatchToastKey !== mismatchKey) {
               lastTierMismatchToastKey = mismatchKey;
-              showToast(`Warning: ${displayName(daoA)} (T${daoA.tier}) and ${displayName(daoB)} (T${daoB.tier}) are different tiers. This creates an unstable synthesis.`, "warning");
+              showToast(`Warning: ${displayName(daoA)} and ${displayName(daoB)} are on different refinement bands. This creates an unstable synthesis.`, "warning");
             }
           } else {
             lastTierMismatchToastKey = "";
@@ -1623,12 +1614,12 @@
         }
         const tierMismatch = daoA.tier !== daoB.tier;
         const resultTier = tierMismatch ? Math.max(daoA.tier, daoB.tier) : (Math.max(daoA.tier, daoB.tier) + 1);
-        if (resultTier > state.playerRank + 1) return { ok: false, reason: "Insufficient rank for this tier" };
+        if (resultTier > state.playerRank + 1) return { ok: false, reason: "Insufficient rank for this synthesis" };
         const isWinAttempt = isCreationOblivionPair(daoA, daoB);
         if (isWinAttempt) return { ok: true, reason: "Transcendent union", win: true };
         return {
           ok: true,
-          reason: tierMismatch ? "Tier mismatch: unstable synthesis (consume-only)" : "Ready to forge",
+          reason: tierMismatch ? "Band mismatch: unstable synthesis (consume-only)" : "Ready to forge",
           win: false,
           cost: 0,
           resultTier,
@@ -1680,9 +1671,9 @@
         }, 0);
       }
       function applyMilestoneBonus(tier) {
-        if (tier === 3 && !state.firstTierMilestones[3]) { state.firstTierMilestones[3] = true; awardCp(20, "Tier 3 insight"); }
-        if (tier === 5 && !state.firstTierMilestones[5]) { state.firstTierMilestones[5] = true; awardCp(50, "Tier 5 breakthrough"); }
-        if (tier === 7 && !state.firstTierMilestones[7]) { state.firstTierMilestones[7] = true; awardCp(100, "Tier 7 revelation"); }
+        if (tier === 3 && !state.firstTierMilestones[3]) { state.firstTierMilestones[3] = true; awardCp(20, "Insight breakthrough I"); }
+        if (tier === 5 && !state.firstTierMilestones[5]) { state.firstTierMilestones[5] = true; awardCp(50, "Insight breakthrough II"); }
+        if (tier === 7 && !state.firstTierMilestones[7]) { state.firstTierMilestones[7] = true; awardCp(100, "Insight breakthrough III"); }
       }
       function ensureRankUp() {
         let changed = false;
@@ -1691,7 +1682,7 @@
           const has = state.inventory.some((inst) => getDef(inst).tier >= target);
           if (!has) break;
           if (target === 9 && !canAdvanceToRank9()) {
-            showToast("To transcend to Rank 9, hold both a T8 Yang Dao and a T8 Yin Dao.", "warning");
+            showToast("To transcend to Rank 9, hold one advanced Yang Dao and one advanced Yin Dao.", "warning");
             break;
           }
           state.playerRank += 1;
@@ -1921,13 +1912,6 @@
         if (def && def.name && def.name.trim().length === 0) return "◯";
         return def ? def.name : "Unknown Dao";
       }
-      function tierBadgeClass(def) {
-        if (def.tier <= 3) return "tier-low";
-        if (def.tier <= 6) return "tier-mid";
-        if (def.tier <= 8) return "tier-high";
-        if (def.name === "Creation" || def.affinity === "Yang") return "tier-t9-yang";
-        return "tier-t9-yin";
-      }
       function cardMatchesFilter(def, filter) {
         switch (filter) {
           case "all": return true;
@@ -2034,7 +2018,6 @@
                 <div class="dao-name ${isBlank}">${def.isNameless ? "◯" : displayName(def)}</div>
                 <div class="dao-top-right">
                   ${instances.length > 1 ? `<span class="chip">x${instances.length}</span>` : ""}
-                  <span class="tier-badge ${tierBadgeClass(def)}">T${def.tier}</span>
                 </div>
               </div>
               <div class="dao-meta">
@@ -2274,7 +2257,7 @@
           return `
             <section style="display:grid;gap:6px;margin-bottom:8px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <button data-mastery-tier-toggle="${tierKey}" style="background:transparent;border:1px solid rgba(200,149,42,.4);border-radius:2px;padding:3px 8px;">${tierCollapsed ? "▸" : "▾"} Tier ${tierNum}</button>
+                <button data-mastery-tier-toggle="${tierKey}" style="background:transparent;border:1px solid rgba(200,149,42,.4);border-radius:2px;padding:3px 8px;">${tierCollapsed ? "▸" : "▾"} Band ${tierNum}</button>
                 <span class="tooltip">${masteredInTier}/${tierDefs.length} touched</span>
               </div>
               ${tierCollapsed ? "" : `<div class="mastery-tier-grid">${rows}</div>`}
@@ -2299,7 +2282,7 @@
         }
         if (masteryBtn) {
           masteryBtn.disabled = !masteryUnlocked;
-          masteryBtn.title = masteryUnlocked ? "Mastery" : "Unlocks after reading a Tier 2+ Dao.";
+          masteryBtn.title = masteryUnlocked ? "Mastery" : "Unlocks after reading an advanced Dao.";
         }
         if (seedsBtn) {
           seedsBtn.disabled = !seedsUnlocked;
@@ -2307,7 +2290,7 @@
         }
         if (mastersBtn) {
           mastersBtn.disabled = !mastersUnlocked;
-          mastersBtn.title = mastersUnlocked ? "Masters" : "Unlocks after reading a Tier 2+ Dao.";
+          mastersBtn.title = mastersUnlocked ? "Masters" : "Unlocks after reading an advanced Dao.";
         }
         const requested = ["library", "mastery", "seeds", "masters"].includes(state.middlePanelTab) ? state.middlePanelTab : "forge";
         const tab = (requested === "library" && !libraryUnlocked)
@@ -2415,8 +2398,8 @@
         const tiers = Array.from(byTier.keys()).sort((a, b) => b - a);
         const sections = tiers.map((tier) => {
           const defs = byTier.get(tier) || [];
-          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#7a5c2a;">${def.description || ""}</div></div>`).join("");
-          return `<div style="margin:10px 0 6px;color:#8b5a2b;font-size:12px;">Tier ${tier} (${defs.length})</div>${rows}`;
+          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#7a5c2a;">${def.description || ""}</div></div>`).join("");
+          return `<div style="margin:10px 0 6px;color:#8b5a2b;font-size:12px;">Band ${tier} (${defs.length})</div>${rows}`;
         }).join("");
         return `
           <div style="display:grid;gap:8px;">
@@ -2490,9 +2473,9 @@
               </div>
               <div id="higherTierManifestArea" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  <button id="tierManifestBtn2" class="hint-btn">Manifest T2 Dao</button>
-                  <button id="tierManifestBtn3" class="hint-btn">Manifest T3 Dao</button>
-                  <button id="tierManifestBtn4" class="hint-btn">Manifest T4 Dao</button>
+                  <button id="tierManifestBtn2" class="hint-btn">Manifest Advanced Dao</button>
+                  <button id="tierManifestBtn3" class="hint-btn">Manifest Refined Dao</button>
+                  <button id="tierManifestBtn4" class="hint-btn">Manifest Transcendent Dao</button>
                 </div>
                 <div class="seed-cooldown-track"><div id="higherTierManifestCdFillForge" class="seed-cooldown-fill"></div></div>
                 <div class="tooltip" id="higherTierManifestCdTextForge"></div>
@@ -2507,7 +2490,7 @@
         function slotMarkup(inst) {
           if (!inst) return `<div style="color:var(--muted);">Select a Dao</div>`;
           const def = getDef(inst);
-          return `<div class="serif">${displayName(def)}</div><div class="chip">T${def.tier} ${def.affinity}</div>`;
+          return `<div class="serif">${displayName(def)}</div><div class="chip">${def.affinity}</div>`;
         }
         slotA.innerHTML = slotMarkup(instA);
         slotB.innerHTML = slotMarkup(instB);
@@ -2538,7 +2521,7 @@
             const known = localKnown || pairKnown;
             if (known && known.name) {
               const normalizedKnown = normalizeResult(known, val.resultTier, daoA, daoB);
-              knownEl.textContent = `Known result: ${displayName(normalizedKnown)} • T${normalizedKnown.tier} ${normalizedKnown.affinity} / ${normalizedKnown.harmonyClass}`;
+              knownEl.textContent = `Known result: ${displayName(normalizedKnown)} • ${normalizedKnown.affinity} / ${normalizedKnown.harmonyClass}`;
             } else {
               knownEl.textContent = "";
             }
@@ -2613,7 +2596,6 @@
           const title = def ? displayName(def) : "Select a second Dao";
           const stats = def
             ? `<div class="stats">
-                <span class="chip">T${def.tier}</span>
                 <span class="chip">${def.affinity}</span>
                 <span class="chip">${def.harmonyClass}</span>
               </div>`
@@ -2815,7 +2797,7 @@
               <div class="path-divider">⟷</div>
               <div class="path-card yin-path"><span class="path-glyph">☾</span><span class="path-name">Path of Oblivion</span><span class="path-desc">Yin — Dissolve, Return, Unmake</span></div>
             </div>
-            <p class="divergence-footer">Both paths must be walked to reach the Ninth Tier.<br>Watch for the polarity mark on each Dao card.</p>
+            <p class="divergence-footer">Both paths must be walked to reach the final gate.<br>Watch for the polarity mark on each Dao card.</p>
             <button class="btn-primary" id="divergenceContinue">Continue Cultivation</button>
           </div>`;
         document.body.appendChild(overlay);
@@ -2927,8 +2909,8 @@
           const tiers = Array.from(byTier.keys()).sort((a, b) => b - a);
           list.innerHTML = tiers.map((tier) => {
             const defs = byTier.get(tier) || [];
-          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#7a5c2a;">${def.description || ""}</div></div>`).join("");
-            return `<div style="margin:10px 0 6px;color:#8b5a2b;font-size:12px;">Tier ${tier} (${defs.length})</div>${rows}`;
+          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#7a5c2a;">${def.description || ""}</div></div>`).join("");
+            return `<div style="margin:10px 0 6px;color:#8b5a2b;font-size:12px;">Band ${tier} (${defs.length})</div>${rows}`;
           }).join("");
         };
         if (search) search.addEventListener("input", render);
@@ -3090,7 +3072,7 @@
               .map((slot, idx) => {
                 const unlocked = activeSlotUnlocked(idx);
                 if (!unlocked) {
-                  const txt = idx === 1 ? "Locked (unlocks at T3)" : (idx === 2 ? "Locked (unlocks at T6)" : "Locked");
+                  const txt = idx === 1 ? "Locked (unlocks at later gate)" : (idx === 2 ? "Locked (unlocks at final gate)" : "Locked");
                   return `<div class="library-item"><div><strong>Slot ${idx + 1}</strong> <span style="color:#7a5c2a;">${txt}</span></div><div></div></div>`;
                 }
                 if (!slot) {
@@ -3143,7 +3125,7 @@
         if (!canUseHigherTierManifest(tier)) {
           const milestone = cpMilestoneForTier(tier);
           const need = milestone ? milestone.cpRequired : 0;
-          showToast(`Need ${need} total CP earned to unlock T${tier} manifestation.`, "warning");
+          showToast(`Need ${need} total CP earned to unlock this manifestation.`, "warning");
           return;
         }
         const t = now();
@@ -3158,13 +3140,13 @@
         }
         const chosen = randomManifestDaoNameForTier(tier);
         if (!chosen) {
-          showToast(`No unlocked T${tier} Dao discovered yet. Forge more at this tier first.`, "warning");
+          showToast("No unlocked Dao discovered for this manifestation yet. Forge further first.", "warning");
           return;
         }
         const reduced = higherTierManifestCooldownMs();
         state.higherTierManifestCooldownUntil = t + reduced;
         state.higherTierManifestCooldownMs = reduced;
-        manifestDaoByName(chosen, `A T${tier} Dao manifests`);
+        manifestDaoByName(chosen, "A Dao manifests");
         saveState(); checkTutorialAdvancement(); rerenderUI(true);
       }
       function manifestSpecificDao(name, requestedCount) {
@@ -3250,7 +3232,7 @@
           btn.classList.toggle("hidden", !unlocked);
           btn.disabled = !unlocked;
           btn.title = unlocked
-            ? `Manifest a random discovered T${tier} Dao.`
+            ? "Manifest a random discovered Dao."
             : `Unlocks at ${milestone.cpRequired} total CP earned (${cpEarned}/${milestone.cpRequired}).`;
           btn.onclick = () => manifestHigherTierDao(tier);
         };
@@ -3267,7 +3249,7 @@
           if (area) area.classList.toggle("hidden", !unlockedAny);
           const readyTierCounts = HIGHER_TIER_MANIFEST_MILESTONES
             .filter((m) => canUseHigherTierManifest(m.tier))
-            .map((m) => `T${m.tier}:${higherTierManifestPoolNames(m.tier).length}`)
+            .map((m) => `Band ${m.tier}:${higherTierManifestPoolNames(m.tier).length}`)
             .join(" • ");
           if (!unlockedAny) {
             txt.textContent = "";
@@ -3289,7 +3271,7 @@
             if (fill) fill.style.width = "100%";
             return;
           }
-          txt.textContent = `Higher-tier manifestation ready. Pools -> ${readyTierCounts || "discover more T2-T4 Daos"}.`;
+          txt.textContent = `Advanced manifestation ready. Pools -> ${readyTierCounts || "discover more advanced Daos"}.`;
           if (fill) fill.style.width = "100%";
         };
         bindOne("seedManifestBtn", "meditateCdText", "seedManifestCdFillInfo");
@@ -3434,19 +3416,19 @@
               if (!stageUnlocked(3)) { showToast("Library unlocks after your first discovery.", "info"); return; }
               state.middlePanelTab = "library"; rerenderUI();
             } else if (target.id === "middleSeedsTabBtn") {
-              if (!stageUnlocked(12)) { showToast("Seeds unlock at Tier 4.", "info"); return; }
+              if (!stageUnlocked(12)) { showToast("Seeds unlock at a later progression gate.", "info"); return; }
               state.middlePanelTab = "seeds";
               state.tutorialActions.openedSeedsTab = true;
               checkTutorialAdvancement();
               rerenderUI();
             } else if (target.id === "middleMasteryTabBtn") {
-              if (!stageUnlocked(6)) { showToast("Mastery unlocks after reading a Tier 2+ Dao.", "info"); return; }
+              if (!stageUnlocked(6)) { showToast("Mastery unlocks after reading an advanced Dao.", "info"); return; }
               state.middlePanelTab = "mastery";
               state.tutorialActions.openedMasteryTab = true;
               checkTutorialAdvancement();
               rerenderUI();
             } else if (target.id === "middleMastersTabBtn") {
-              if (!stageUnlocked(6)) { showToast("Masters unlock after reading a Tier 2+ Dao.", "info"); return; }
+              if (!stageUnlocked(6)) { showToast("Masters unlock after reading an advanced Dao.", "info"); return; }
               state.middlePanelTab = "masters";
               rerenderUI();
             } else if (target.id === "mastersRefreshBtn") {
@@ -3525,7 +3507,7 @@
       async function submitDaoVote(def, voteValue) {
         if (!def || !def.name || !def.tier) return;
         if (Number(def.tier) < 2) {
-          showToast("Voting is available only for Tier 2 and above.", "info");
+          showToast("Voting is available only for advanced Daos.", "info");
           return;
         }
         if (def.voteEligibleName !== true) {

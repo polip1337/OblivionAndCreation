@@ -4,28 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dao Synthesis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&family=Liu+Jian+Mao+Cao&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./xianxia.css" />
   <style>
+    
     :root {
       --bg: #0e0c12;
-      --panel: #1a1624;
-      --panel-2: #221d30;
-      --text: #e3dfef;
-      --muted: #9f97b5;
-      --line: #342c48;
+      --panel: #edddb8;
+      --panel-2: #f0e6cc;
+      --text: #2a2140;
+      --muted: #7a5c2a;
+      --line: rgba(200,149,42,.25);
       --yang-1: #c9893a;
       --yang-2: #f5c87a;
-      --yin-1: #4a3b7a;
-      --yin-2: #9b85d4;
-      --neutral: #8a9baa;
+      --yin-1: #2d6b4a;
+      --yin-2: #4a9b6f;
+      --neutral: #7a5c2a;
       --earth: #4a6b4a;
       --human: #7a5c30;
       --paradox: #8a2a2a;
       --danger: #bf3d3d;
       --success: #4a8055;
       --warning: #a88a3a;
-      --info: #4a6280;
+      --info: #2d6b4a;
       --radius: 12px;
-      --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+      --shadow: 0 8px 32px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.35);
       --card-min-h: 80px;
       --transition: 160ms ease;
     }
@@ -33,7 +36,7 @@
     body {
       margin: 0;
       font-family: Inter, Segoe UI, Arial, sans-serif;
-      background: radial-gradient(circle at top, #151122, var(--bg));
+      background: radial-gradient(circle at top, #1a0e06, var(--bg));
       color: var(--text);
       min-height: 100vh;
     }
@@ -44,20 +47,26 @@
     button, input, select {
       font: inherit;
       color: inherit;
-      background: #2a2340;
+      background: rgba(46, 26, 12, 0.4);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 8px 12px;
     }
     button { cursor: pointer; transition: transform var(--transition), opacity var(--transition), border-color var(--transition); }
-    button:hover:enabled { transform: translateY(-1px); border-color: #5a4c7d; }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:hover:enabled { transform: translateY(-1px); border-color: #c8952a; }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background: rgba(122, 92, 42, 0.28);
+      border-color: rgba(200, 149, 42, 0.3);
+      color: rgba(46, 26, 12, 0.7);
+    }
     .hidden { display: none !important; }
     #app { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
     .topbar {
       padding: 10px 16px;
       border-bottom: 1px solid var(--line);
-      background: rgba(15, 12, 22, 0.8);
+      background: rgba(13, 9, 5, 0.92);
       backdrop-filter: blur(6px);
       display: flex;
       justify-content: space-between;
@@ -73,23 +82,23 @@
     }
     .library-btn {
       background: #222f3d;
-      border-color: #476184;
+      border-color: #c8952a;
       font-size: 12px;
       padding: 6px 10px;
     }
     .reset-btn {
-      background: #2f1f2a;
-      border-color: #6a3f58;
+      background: #2a2140;
+      border-color: #c8952a;
       font-size: 12px;
       padding: 6px 10px;
     }
     .title-wrap { display: flex; align-items: center; gap: 10px; }
     .bagua {
-      width: 26px; height: 26px; border: 2px solid #7c6ca7; border-radius: 50%;
+      width: 26px; height: 26px; border: 2px solid #c8952a; border-radius: 50%;
       position: relative; animation: spinSlow 10s linear infinite;
     }
     .bagua::before, .bagua::after {
-      content: ""; position: absolute; inset: 4px; border: 1px dashed #6f6099; border-radius: 50%;
+      content: ""; position: absolute; inset: 4px; border: 1px dashed rgba(200,149,42,.5); border-radius: 50%;
     }
     .screen { display: grid; grid-template-columns: 340px 1fr 280px; gap: 10px; padding: 10px; }
     .panel {
@@ -122,7 +131,7 @@
       padding-right: 4px;
     }
     .mobile-tabs { display: none; border-bottom: 1px solid var(--line); padding: 8px; gap: 8px; }
-    .mobile-tabs button.active { border-color: #8471ba; background: #33284b; }
+    .mobile-tabs button.active { border-color: #c8952a; background: #edddb8; }
     .left-tabs {
       display: flex;
       border-bottom: 1px solid var(--line);
@@ -130,7 +139,7 @@
       gap: 8px;
       margin-bottom: 10px;
     }
-    .left-tabs button.active { border-color: #8471ba; background: #33284b; }
+    .left-tabs button.active { border-color: #c8952a; background: #edddb8; }
     .left-tab-content { min-height: 0; }
     .middle-panel-tabs {
       display: flex;
@@ -138,8 +147,8 @@
       align-items: center;
     }
     .middle-panel-tabs button.active {
-      border-color: #8471ba;
-      background: #33284b;
+      border-color: #c8952a;
+      background: #edddb8;
     }
     .seed-atlas-grid {
       display: grid;
@@ -151,7 +160,7 @@
       height: min(62vh, 620px);
       border: 1px solid #3f3260;
       border-radius: 10px;
-      background: radial-gradient(circle at 30% 20%, #1f1730 0%, #140f20 52%, #100b18 100%);
+      background: radial-gradient(circle at 30% 20%, #f8eed5 0%, #f2e4c4 52%, #edddb8 100%);
       overflow: hidden;
       position: relative;
     }
@@ -161,11 +170,11 @@
       pointer-events: none;
       min-width: 180px;
       max-width: 280px;
-      background: rgba(17, 13, 27, 0.96);
-      border: 1px solid #6a5a8a;
+      background: rgba(245,234,208,.98);
+      border: 1px solid #c8952a;
       border-radius: 8px;
       padding: 8px 9px;
-      color: #e5dff3;
+      color: #2a2140;
       font-size: 11px;
       line-height: 1.35;
       box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
@@ -178,37 +187,37 @@
       font-size: 12px;
       font-weight: 600;
       margin-bottom: 4px;
-      color: #f0e7ff;
+      color: #2a2140;
     }
     .seed-graph-tooltip .hint {
-      color: #cfbfdc;
+      color: #5a3a1a;
     }
     .seed-column {
-      border: 1px solid #3f3260;
+      border: 1px solid rgba(200,149,42,.2);
       border-radius: 10px;
       padding: 8px;
-      background: #140f20;
+      background: #f5ead0;
       display: grid;
       gap: 8px;
       align-content: start;
     }
     .seed-column-title {
       font-size: 12px;
-      color: #b7abd5;
+      color: #7a5c2a;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
     .seed-atlas-card {
-      border: 1px solid #4a3d61;
+      border: 1px solid rgba(200,149,42,.25);
       border-radius: 10px;
       padding: 8px;
-      background: #1b1529;
+      background: #f0e6cc;
       display: grid;
       gap: 6px;
     }
     .seed-atlas-card.locked {
       border-style: dashed;
-      background: #171126;
+      background: #edddb8;
     }
     .seed-atlas-name {
       font-size: 13px;
@@ -227,9 +236,9 @@
     }
     .seed-unlock-hint {
       font-size: 11px;
-      color: #a79ec2;
+      color: #7a5c2a;
       line-height: 1.35;
-      border-left: 2px solid #4f3e74;
+      border-left: 2px solid #8b1a1a;
       padding-left: 6px;
     }
     .mastery-list {
@@ -242,10 +251,10 @@
       gap: 8px;
     }
     .mastery-card {
-      border: 1px solid #4a3d61;
+      border: 1px solid rgba(200,149,42,.25);
       border-radius: 10px;
       padding: 8px;
-      background: #1b1529;
+      background: #f0e6cc;
       display: grid;
       gap: 6px;
     }
@@ -270,26 +279,27 @@
     .mastery-bar {
       height: 8px;
       border-radius: 999px;
-      border: 1px solid #4a3d61;
-      background: #2b233c;
+      border: 1px solid rgba(200,149,42,.2);
+      background: rgba(139,90,43,.12);
       overflow: hidden;
     }
     .mastery-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, #6f5aa0, #c9893a);
+      background: linear-gradient(90deg, #2d6b4a, #c8952a);
     }
     .stats { display: flex; gap: 8px; flex-wrap: wrap; font-size: 13px; }
-    .chip { background: #302743; border: 1px solid #4d3f6a; border-radius: 999px; padding: 4px 8px; font-size: 12px; }
+    .chip { background: rgba(200,149,42,.12); border: 1px solid rgba(200,149,42,.4); border-radius: 3px; padding: 4px 8px; font-size: 12px; }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
     .search-row { margin-bottom: 8px; }
     .search-row input { width: 100%; }
-    .filters button.active { border-color: #8471ba; background: #3a2d56; }
+    #inventorySearchInput { color: var(--earth); }
+    .filters button.active { border-color: #c8952a; background: rgba(200,149,42,.15); }
     .dao-grid { display: grid; grid-template-columns: repeat(2, minmax(120px, 1fr)); gap: 8px; }
     .dao-card {
-      border: 1px solid #4a3d61;
+      border: 1px solid rgba(200,149,42,.3);
       border-radius: 12px;
       min-height: var(--card-min-h);
-      background: #1d1830;
+      background: #f5ead0;
       padding: 8px 8px 36px;
       display: grid;
       gap: 6px;
@@ -308,9 +318,9 @@
       width: 22px;
       height: 22px;
       border-radius: 50%;
-      border: 1px solid #5d507a;
-      background: #261f38;
-      color: #8a9baa;
+      border: 1px solid rgba(200,149,42,.4);
+      background: #edddb8;
+      color: #7a5c2a;
       font-size: 12px;
       line-height: 1;
       display: inline-flex;
@@ -356,7 +366,7 @@
     .tier-mid { background: #2a3a2a; }
     .tier-high { background: #3a2a4a; }
     .tier-t9-yang { background: linear-gradient(120deg, #4a2a00, #6a4a00); }
-    .tier-t9-yin { background: linear-gradient(120deg, #1a0a3a, #2a1a5a); }
+    .tier-t9-yin { background: linear-gradient(120deg, #0d2a1e, #1a3d2a); }
     .aff-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,0.2); }
     .forge-slots { display: grid; grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 12px; }
     .forge-mid {
@@ -371,13 +381,13 @@
     }
     .slot {
       min-height: 120px;
-      border: 1px dashed #4e406b;
+      border: 1px dashed rgba(200,149,42,.35);
       border-radius: 12px;
       padding: 10px;
       display: grid;
       align-content: center;
       text-align: center;
-      background: rgba(30, 24, 45, 0.55);
+      background: rgba(245,234,208,.4);
     }
     .resonance-pill { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; white-space: nowrap; }
     .resonance-locked { visibility: hidden; }
@@ -386,14 +396,14 @@
     .res-chaos { color: #ff9090; border-color: #ff9090; }
     .res-neutral { color: #a7b5c4; border-color: #64788c; }
     .forge-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-    .forge-btn { background: linear-gradient(120deg, #3b2f59, #6f4f3c); border-color: #8f7eb8; }
-    .hint-btn { background: #2b2540; }
+    .forge-btn { background: linear-gradient(120deg, #8b1a1a, #6f3010); border-color: #c8952a; }
+    .hint-btn { background: transparent; }
     .activate-dao-btn {
-      background: linear-gradient(120deg, #2f2750, #46346f);
-      border: 1px solid #7f6ab3;
+      background: transparent;
+      border: 1px solid rgba(200,149,42,.4);
       border-radius: 8px;
       padding: 8px 12px;
-      color: #ece5ff;
+      color: #c8952a;
       appearance: none;
       clip-path: none;
       -webkit-clip-path: none;
@@ -401,8 +411,8 @@
       -webkit-mask: none;
     }
     .activate-dao-btn:hover:enabled {
-      border-color: #a996d8;
-      background: linear-gradient(120deg, #3a3061, #54407f);
+      border-color: #c8952a;
+      background: rgba(200,149,42,.1);
     }
     .activate-dao-btn.tutorial-focus {
       outline: none;
@@ -414,24 +424,24 @@
       width: 100%;
       height: 7px;
       border-radius: 999px;
-      background: #2b233c;
-      border: 1px solid #483c61;
+      background: rgba(139,90,43,.15);
+      border: 1px solid rgba(200,149,42,.2);
       overflow: hidden;
     }
     .seed-cooldown-fill {
       height: 100%;
       width: 100%;
-      background: linear-gradient(90deg, #9b85d4, #f5c87a);
+      background: linear-gradient(90deg, #2d6b4a, #c8952a);
       transition: width 240ms linear;
     }
     .active-dao-area { margin-bottom: 12px; display: grid; gap: 8px; }
     .active-dao-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     .active-dao-slot {
       min-height: 92px;
-      border: 1px dashed #4e406b;
+      border: 1px dashed rgba(200,149,42,.35);
       border-radius: 12px;
       padding: 8px;
-      background: rgba(30, 24, 45, 0.55);
+      background: rgba(245,234,208,.4);
       display: grid;
       align-content: center;
       gap: 4px;
@@ -439,8 +449,8 @@
     }
     .active-dao-slot.filled {
       border-style: solid;
-      border-color: #6d5a97;
-      background: linear-gradient(160deg, rgba(43, 34, 66, 0.95), rgba(33, 26, 52, 0.95));
+      border-color: #c8952a;
+      background: linear-gradient(160deg, rgba(245,234,208,.98), rgba(240,230,200,.98));
     }
     .active-dao-slot.locked {
       border-style: dashed;
@@ -449,22 +459,22 @@
     }
     .active-dao-title { font-size: 12px; color: var(--muted); }
     .active-dao-name { font-size: 14px; }
-    .active-dao-echoes { font-size: 11px; color: #c5bcda; }
+    .active-dao-echoes { font-size: 11px; color: #7a5c2a; }
     .bonus-summary {
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 10px;
       background: rgba(30, 24, 45, 0.35);
     }
-    .spinner { width: 20px; height: 20px; border: 2px solid #7b6ca5; border-top-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; display: none; }
+    .spinner { width: 20px; height: 20px; border: 2px solid #c8952a; border-top-color: transparent; border-radius: 50%; animation: spin 700ms linear infinite; display: none; }
     .spinner.show { display: inline-block; }
-    .feed { border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; font-size: 13px; color: #c1b9d7; }
+    .feed { border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; font-size: 13px; color: #5a3a1a; }
     .harmony-bars { display: grid; gap: 8px; margin-bottom: 12px; }
     .bar-row { display: grid; grid-template-columns: 68px 1fr 28px; gap: 8px; align-items: center; font-size: 12px; }
-    .bar { height: 10px; background: #2b233c; border: 1px solid #483c61; border-radius: 999px; overflow: hidden; }
+    .bar { height: 10px; background: rgba(139,90,43,.12); border: 1px solid rgba(200,149,42,.2); border-radius: 999px; overflow: hidden; }
     .bar-fill { height: 100%; width: 0%; transition: width 180ms ease; }
-    .info-desc { font-style: italic; color: #c6bdd8; line-height: 1.4; border-left: 2px solid #5f4f80; padding-left: 8px; }
-    .passive-list, .echo-list { display: grid; gap: 5px; font-size: 13px; margin: 8px 0; color: #cabfdf; }
+    .info-desc { font-style: italic; color: #5a3a1a; line-height: 1.4; border-left: 2px solid #8b1a1a; padding-left: 8px; }
+    .passive-list, .echo-list { display: grid; gap: 5px; font-size: 13px; margin: 8px 0; color: #5a3a1a; }
     .instability {
       margin-top: 4px; height: 7px; background: #2c1a1a; border-radius: 999px; border: 1px solid #542828;
       overflow: hidden;
@@ -472,21 +482,24 @@
     .instability-fill { height: 100%; background: linear-gradient(90deg, #4f1111, #c23232); transition: width 300ms linear; }
     .instability-fill.critical { animation: dangerFlash 900ms linear infinite; }
     .toasts { position: fixed; top: 16px; right: 16px; display: grid; gap: 8px; z-index: 100; }
-    .toast { min-width: 260px; max-width: 380px; padding: 10px 12px; border-radius: 10px; border: 1px solid #4f426d; background: #271f39; box-shadow: var(--shadow); animation: slideIn 220ms ease; }
+    .toast { min-width: 260px; max-width: 380px; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(200,149,42,.35); background: #f5ead0; box-shadow: var(--shadow); animation: slideIn 220ms ease; color: var(--text); }
     .toast.info { border-left: 4px solid var(--info); }
     .toast.success { border-left: 4px solid var(--success); }
     .toast.warning { border-left: 4px solid var(--warning); }
     .toast.danger { border-left: 4px solid var(--danger); }
     .modal-root {
       position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
-      background: rgba(8, 5, 12, 0.68); z-index: 200;
+      background: rgba(13, 9, 5, 0.75); z-index: 200;
     }
     .modal-root.show { display: flex; }
     .modal {
       width: min(580px, 92vw);
-      background: linear-gradient(150deg, #1b1729, #241d35);
-      border: 1px solid #554475;
-      border-radius: 14px;
+      background: #f5ead0;
+      background-image:
+        repeating-linear-gradient(180deg, transparent, transparent 30px, rgba(139,90,43,.04) 30px, rgba(139,90,43,.04) 31px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p)' opacity='0.07'/%3E%3C/svg%3E");
+      border: 1px solid #c8952a;
+      border-radius: 2px;
       padding: 16px;
       box-shadow: var(--shadow);
       display: grid; gap: 12px;
@@ -500,11 +513,11 @@
     .win-line { font-size: clamp(22px, 2.2vw, 36px); opacity: 0; transition: opacity 700ms ease; }
     .win-line.visible { opacity: 1; }
     .win-panel {
-      margin-top: 10px; border: 1px solid #655392; border-radius: 12px; padding: 12px; background: #130f1f;
+      margin-top: 10px; border: 1px solid #c8952a; border-radius: 12px; padding: 12px; background: #1d1830;
       display: none; text-align: left;
     }
     .win-panel.show { display: grid; gap: 8px; }
-    .win-log { max-height: 180px; overflow: auto; border: 1px solid #3d3159; border-radius: 8px; padding: 8px; background: #0f0b18; }
+    .win-log { max-height: 180px; overflow: auto; border: 1px solid rgba(200,149,42,.25); border-radius: 8px; padding: 8px; background: #0d0905; }
     .flash-layer {
       position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 290;
       background: radial-gradient(circle, rgba(255,255,255,0.28), rgba(0,0,0,0));
@@ -528,7 +541,7 @@
     .polarity-track {
       flex: 1;
       height: 4px;
-      background: #2a2a3a;
+      background: rgba(139,90,43,.2);
       border-radius: 2px;
       position: relative;
       overflow: visible;
@@ -549,66 +562,15 @@
     }
     .polarity-label {
       font-size: 9px;
-      color: #8a9baa;
+      color: var(--muted);
       white-space: nowrap;
       font-family: Georgia, "Times New Roman", serif;
       letter-spacing: 0.02em;
     }
     .highway-yang { box-shadow: 0 0 0 1px #c9893a22 inset; }
-    .highway-yin { box-shadow: 0 0 0 1px #4a3b7a22 inset; }
+    .highway-yin { box-shadow: 0 0 0 1px rgba(45,107,74,.2) inset; }
     .highway-yang:hover { box-shadow: 0 0 0 1px #c9893a66 inset; }
-    .highway-yin:hover { box-shadow: 0 0 0 1px #9b85d466 inset; }
-    .compass-widget {
-      padding: 12px;
-      background: #13101e;
-      border: 1px solid #2a2a3a;
-      border-radius: 8px;
-      margin-top: 12px;
-    }
-    .compass-header {
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #8a9baa;
-      margin-bottom: 10px;
-    }
-    .compass-bar-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .compass-label {
-      font-size: 10px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .yang-label { color: #c9893a; }
-    .yin-label { color: #9b85d4; }
-    .compass-track {
-      flex: 1;
-      height: 8px;
-      display: flex;
-      border-radius: 4px;
-      overflow: hidden;
-    }
-    .compass-yang-fill {
-      background: linear-gradient(to right, #c9893a, #f5c87a);
-      transition: width 0.5s ease;
-    }
-    .compass-yin-fill {
-      background: linear-gradient(to right, #9b85d4, #4a3b7a);
-      transition: width 0.5s ease;
-    }
-    .compass-counts {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 6px;
-      font-size: 10px;
-    }
-    .yang-count { color: #c9893a; }
-    .yin-count { color: #9b85d4; }
-    .balance-text { color: #8a9baa; font-style: italic; }
+    .highway-yin:hover { box-shadow: 0 0 0 1px rgba(45,107,74,.5) inset; }
     .harmony-microcopy {
       font-size: 11px;
       color: #9c93b4;
@@ -628,18 +590,18 @@
     .library-list {
       max-height: 380px;
       overflow: auto;
-      border: 1px solid #3f3260;
+      border: 1px solid rgba(200,149,42,.25);
       border-radius: 8px;
       padding: 8px;
-      background: #140f20;
+      background: #f5ead0;
       display: grid;
       gap: 6px;
     }
     .library-item {
-      border: 1px solid #3f3260;
-      border-radius: 8px;
+      border: 1px solid rgba(200,149,42,.3);
+      border-radius: 2px;
       padding: 8px;
-      background: #1b1529;
+      background: #edddb8;
       font-size: 12px;
       line-height: 1.4;
     }
@@ -650,13 +612,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(7, 5, 12, 0.78);
+      background: rgba(13, 9, 5, 0.80);
       padding: 16px;
     }
     .modal-box {
-      background: linear-gradient(160deg, #191428, #241b36);
-      border: 1px solid #54407a;
-      border-radius: 12px;
+      background: #f5ead0;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p)' opacity='0.07'/%3E%3C/svg%3E");
+      border: 1px solid #c8952a;
+      border-radius: 2px;
       box-shadow: var(--shadow);
       padding: 16px;
       width: min(520px, 92vw);
@@ -685,7 +649,7 @@
       margin-bottom: 8px;
     }
     .divergence-body {
-      color: #8a9baa;
+      color: var(--muted);
       font-size: 14px;
       line-height: 1.7;
       margin-bottom: 20px;
@@ -709,8 +673,8 @@
       border: 1px solid #c9893a44;
     }
     .yin-path {
-      background: linear-gradient(135deg, #1a0a3a, #2a1a5a);
-      border: 1px solid #9b85d444;
+      background: linear-gradient(135deg, #0d2a1e, #1a3d2a);
+      border: 1px solid rgba(45,107,74,.35);
     }
     .path-glyph { font-size: 24px; }
     .path-name {
@@ -719,19 +683,19 @@
       font-weight: 600;
     }
     .yang-path .path-name { color: #f5c87a; }
-    .yin-path .path-name { color: #9b85d4; }
+    .yin-path .path-name { color: #4a9b6f; }
     .path-desc {
       font-size: 11px;
-      color: #8a9baa;
+      color: var(--muted);
     }
     .path-divider {
       font-size: 20px;
-      color: #8a9baa;
+      color: var(--muted);
       flex-shrink: 0;
     }
     .divergence-footer {
       font-size: 12px;
-      color: #8a9baa;
+      color: var(--muted);
       margin-bottom: 20px;
       line-height: 1.6;
     }
@@ -747,20 +711,20 @@
     }
     .forge-lock-glyph {
       font-size: 48px;
-      color: #8a9baa;
+      color: var(--muted);
     }
     .forge-lock-text {
       font-family: Georgia, "Times New Roman", serif;
       font-size: 16px;
-      color: #8a9baa;
+      color: var(--muted);
     }
     .forge-lock-sub {
       font-size: 12px;
-      color: #4a4a5a;
+      color: var(--muted);
     }
     .narrative-banner {
-      background: linear-gradient(135deg, #13101e, #1e1728);
-      border: 1px solid #2a1a4a;
+      background: linear-gradient(135deg, #edddb8, #f5ead0);
+      border: 1px solid rgba(200,149,42,.25);
       border-radius: 10px;
       padding: 16px 20px;
       margin-bottom: 16px;
@@ -779,7 +743,7 @@
     }
     .banner-body {
       font-size: 12px;
-      color: #8a9baa;
+      color: var(--muted);
       line-height: 1.6;
     }
     .panel-reveal {
@@ -792,7 +756,7 @@
 
     /* ===== TUTORIAL GUIDE BAR ===== */
     #tutorialBar {
-      background: #12101e;
+      background: #edddb8;
       border-top: 1px solid #2a2040;
       border-bottom: 1px solid #2a2040;
       padding: 0;
@@ -813,21 +777,21 @@
       align-items: center;
       justify-content: center;
       width: 56px;
-      border-right: 1px solid #2a2040;
+      border-right: 1px solid rgba(200,149,42,.2);
       flex-shrink: 0;
     }
     .step-circle {
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      border: 2px solid #5a4a8a;
-      background: #1e1730;
+      border: 2px solid #c8952a;
+      background: #edddb8;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 13px;
       font-weight: 600;
-      color: #b8a8e0;
+      color: #5a3a1a;
       font-family: Georgia, serif;
     }
     .step-circle.active {
@@ -857,7 +821,7 @@
       align-items: center;
       gap: 12px;
       padding: 10px 16px;
-      border-left: 1px solid #2a2040;
+      border-left: 1px solid rgba(200,149,42,.2);
     }
     .tutorial-dots {
       display: flex;
@@ -868,13 +832,13 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #2a2a3a;
-      border: 1px solid #3a3a4a;
+      background: rgba(200,149,42,.15);
+      border: 1px solid rgba(200,149,42,.3);
       transition: background 0.3s ease, border-color 0.3s ease;
     }
     .t-dot.done {
-      background: #4a3b7a;
-      border-color: #9b85d4;
+      background: #8b1a1a;
+      border-color: #c8952a;
     }
     .t-dot.current {
       background: #f5c87a;
@@ -884,17 +848,17 @@
     }
     .tutorial-dismiss-btn {
       background: transparent;
-      border: 1px solid #3a2a5a;
+      border: 1px solid rgba(200,149,42,.3);
       border-radius: 6px;
-      color: #6a5a8a;
+      color: rgba(200,149,42,.6);
       font-size: 11px;
       padding: 5px 10px;
       cursor: pointer;
       white-space: nowrap;
     }
     .tutorial-dismiss-btn:hover {
-      border-color: #8a6aaa;
-      color: #a090c0;
+      border-color: #c8952a;
+      color: #c8952a;
     }
     .tutorial-dismiss-btn.tutorial-finish-btn {
       background: linear-gradient(120deg, #3f3110, #5b4620);
@@ -909,17 +873,17 @@
     }
     .tutorial-review-btn {
       background: #2a2140;
-      border: 1px solid #4f3e74;
+      border: 1px solid rgba(200,149,42,.4);
       border-radius: 6px;
-      color: #b9add8;
+      color: #5a3a1a;
       font-size: 11px;
       padding: 5px 10px;
       cursor: pointer;
       white-space: nowrap;
     }
     .tutorial-review-btn:hover {
-      border-color: #9b85d4;
-      color: #e3dfef;
+      border-color: #c8952a;
+      color: #2a2140;
     }
     .tutorial-unlock-flash {
       animation: unlockFlash 0.6s ease;
@@ -932,9 +896,9 @@
       animation: tutorialFocusFlash 1s ease-in-out infinite;
     }
     @keyframes unlockFlash {
-      0% { background: #12101e; }
-      30% { background: #1a1a00; }
-      100% { background: #12101e; }
+      0% { background: #edddb8; }
+      30% { background: #f5e8c0; }
+      100% { background: #edddb8; }
     }
     @keyframes tutorialFocusFlash {
       0%, 100% {
@@ -973,11 +937,18 @@
       from { transform: translate(0, 0) scale(1); opacity: 1; }
       to { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
     }
+    
   </style>
   <script src="https://unpkg.com/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
 </head>
 <body>
-  <div id="app">
+  <div id="tsparticles"></div>
+  <div class="scroll-wrapper">
+    <div class="scroll-rod scroll-rod--top"></div>
+    <div class="scroll-body">
+      <div id="app">
     <header class="topbar">
       <div class="title-wrap">
         <div id="baguaHeader" class="bagua" aria-hidden="true"></div>
@@ -1023,7 +994,6 @@
             </div>
             <div id="harmonyMicrocopy" class="harmony-microcopy"></div>
             <details id="harmonyDetails" class="harmony-details"></details>
-            <div id="cultivatorCompass" style="margin-top:12px;"></div>
           <div class="active-dao-area" id="activeDaoArea" style="margin-top:12px;">
             <div class="serif" style="font-size:16px;">Active Daos</div>
             <div class="tooltip" style="margin-bottom:8px;">Consume Daos into slots. Only unlocked slots grant bonuses.</div>
@@ -1063,6 +1033,7 @@
             <button id="middleLibraryTabBtn">Library</button>
             <button id="middleSeedsTabBtn">Seeds</button>
             <button id="middleMasteryTabBtn">Mastery</button>
+            <button id="middleMastersTabBtn">Masters</button>
           </div>
           <div class="tooltip" id="forgeReason">Select two Daos</div>
         </div>
@@ -1107,6 +1078,9 @@
       </section>
     </main>
 
+      </div>
+    </div>
+    <div class="scroll-rod scroll-rod--bottom"></div>
   </div>
 
   <div class="toasts" id="toasts"></div>
@@ -1149,7 +1123,7 @@
         "Nature does not hurry, yet everything is accomplished."
       ];
       const HARMONY_ICON = { Heaven: "☯", Earth: "⛰", Human: "人" };
-      const AFFINITY_COLOR = { Yang: "#f0bf6f", Yin: "#8f79c8", Neutral: "#8a9baa", Paradox: "#8a2a2a" };
+      const AFFINITY_COLOR = { Yang: "#c8952a", Yin: "#2d6b4a", Neutral: "#7a5c2a", Paradox: "#8b1a1a" };
       const FILTERS = [
         { id: "all", label: "All" },
         { id: "favorites", label: "Favorites" },
@@ -1247,25 +1221,25 @@
         {
           id: "reach_t3",
           objective: "Forge a Tier 3 Dao",
-          hint: "Combine Tier 2 Daos to reach Tier 3. This reveals the Great Divergence: your cultivation splits into Creation (Yang) and Oblivion (Yin) trajectories, and later the Convergence Compass shows which side your inventory is leaning toward.",
+          hint: "Combine Tier 2 Daos to reach Tier 3. This reveals the Great Divergence: your cultivation splits into Creation (Yang) and Oblivion (Yin) trajectories.",
           condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 3)
         },
         {
           id: "reach_t4",
           objective: "Forge a Tier 4 Dao",
-          hint: "Tier 4 unlocks Return to Source (復), opening seed progression. This also unlocks the Seeds tab for tracking dormant and awakened seeds.",
+          hint: "Tier 4 unlocks Seeds, where you can browse the progression map.",
           condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4)
         },
         {
           id: "open_seeds",
           objective: "Open the Seeds tab",
-          hint: "In Seeds, inspect the directed graph: awakened seeds show flavor text, while dormant seeds show exact Return to Source unlock requirements.",
+          hint: "In Seeds, inspect the directed graph: awakened seeds show flavor text, while dormant seeds are reserved for future unlock requirements.",
           condition: (s) => !!s.tutorialActions?.openedSeedsTab
         },
         {
           id: "done",
           objective: "The full cultivation path is open",
-          hint: "All systems are now visible. Use the Convergence Compass in Info to track weighted Yang vs Yin and steer toward Creation, Oblivion, or balance.",
+          hint: "All systems are now visible. Continue forging and refining your active Dao setup.",
           condition: () => true
         }
       ];
@@ -1289,7 +1263,7 @@
         9: { label: "Resonance and Discord", condition: (s) => s.discoveryLog.length >= 2 },
         10: { label: "The Still Mind", condition: (s) => (s.totalCpEarned || 0) >= 30 },
         11: { label: "The Great Divergence", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 3) },
-        12: { label: "Return to the Source", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4) },
+        12: { label: "Seed Mapping", condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4) },
         13: { label: "The Seed Atlas", condition: (s) => !!s.tutorialActions?.openedSeedsTab },
         14: { label: "The Full Cultivation Path", condition: (s) => s.tutorialStage >= 13 }
       };
@@ -1350,8 +1324,12 @@
         developerNoSummonCooldown: false,
         paradoxIntroShown: false,
         playMode: null,
-        daoVoteLedger: {}
-        ,
+        daoVoteLedger: {},
+        masters: {
+          quests: [],
+          lastSyncAt: 0,
+          lastSyncError: ""
+        },
         localForgeCache: {}
       };
       const TIER1_SEEDS = [
@@ -1427,6 +1405,7 @@
       let lastTierMismatchToastKey = "";
       let lastUnstableBlockedToastKey = "";
       let lastEarthToastCount = -1;
+      let mastersSyncPromise = null;
       let seedCooldownUiInterval = null;
       let seedGraphCy = null;
       let narrativeRotationInterval = null;
@@ -1626,10 +1605,7 @@
         const highTierHint = highTierRequirement > 0
           ? ` Return ${highTierRequirement} Dao(s) of Tier ${highTierTarget}+ (${highTierReturns}/${highTierRequirement}).`
           : "";
-        return {
-          met,
-          hint: `Return to Source progression: total returns ${totalReturns}/${totalReturnsNeeded}, returned with ${seedName} echo ${echoReturns}/${echoReturnsNeeded}, ${meta.affinity} returns ${affinityReturns}/${affinityReturnsNeeded}, ${meta.harmony} returns ${harmonyReturns}/${harmonyReturnsNeeded}.${highTierHint}`
-        };
+        return { met, hint: "" };
       }
       function unlockSeedsByConditions() {
         const newlyUnlocked = [];
@@ -1890,7 +1866,7 @@
           case "open_seeds":
             return "#middleSeedsTabBtn";
           case "done":
-            return "#convergence-compass";
+            return "";
           default:
             return "";
         }
@@ -2000,12 +1976,6 @@
         activeLeftTab = effectiveTab;
       }
 
-      function renderCultivatorCompass() {
-        const el = document.getElementById("cultivatorCompass");
-        if (!el) return;
-        el.innerHTML = renderConvergenceCompass();
-      }
-
       function activeSlotUnlockText(slotIndex) {
         if (slotIndex === 1) return "Locked (unlocks at T3)";
         if (slotIndex === 2) return "Locked (unlocks at T6)";
@@ -2078,7 +2048,6 @@
         const previousLeftTab = activeLeftTab;
         renderAll();
         applyLeftTab(activeLeftTab);
-        renderCultivatorCompass();
         renderActiveDaos();
         bindSeedManifestButton();
         renderTutorialBar();
@@ -2155,6 +2124,7 @@
           if (parsed.version === 5) {
             parsed.version = 6;
             if (typeof parsed.middlePanelTab !== "string") parsed.middlePanelTab = "forge";
+            if (!["forge", "library", "seeds", "mastery", "masters"].includes(parsed.middlePanelTab)) parsed.middlePanelTab = "forge";
             if (typeof parsed.librarySearch !== "string") parsed.librarySearch = "";
           }
           if (parsed.version === 6) {
@@ -2228,6 +2198,7 @@
           parsed.unlockedSeedNames = normalizeUnlockedSeeds(parsed.unlockedSeedNames);
           if (typeof parsed.seedAtlasUnlocked !== "boolean") parsed.seedAtlasUnlocked = false;
           if (typeof parsed.middlePanelTab !== "string") parsed.middlePanelTab = "forge";
+          if (!["forge", "library", "seeds", "mastery", "masters"].includes(parsed.middlePanelTab)) parsed.middlePanelTab = "forge";
           if (typeof parsed.librarySearch !== "string") parsed.librarySearch = "";
           if (!parsed.daoMasteryCounts || typeof parsed.daoMasteryCounts !== "object") parsed.daoMasteryCounts = {};
           // Cleanup legacy inflated mastery values from older migrations.
@@ -2248,6 +2219,10 @@
           if (typeof parsed.paradoxIntroShown !== "boolean") parsed.paradoxIntroShown = false;
           if (parsed.playMode !== "simple" && parsed.playMode !== "supportive") parsed.playMode = null;
           if (!parsed.daoVoteLedger || typeof parsed.daoVoteLedger !== "object") parsed.daoVoteLedger = {};
+          if (!parsed.masters || typeof parsed.masters !== "object") parsed.masters = { quests: [], lastSyncAt: 0, lastSyncError: "" };
+          if (!Array.isArray(parsed.masters.quests)) parsed.masters.quests = [];
+          if (!Number.isFinite(parsed.masters.lastSyncAt)) parsed.masters.lastSyncAt = 0;
+          if (typeof parsed.masters.lastSyncError !== "string") parsed.masters.lastSyncError = "";
           if (!parsed.localForgeCache || typeof parsed.localForgeCache !== "object") parsed.localForgeCache = {};
           if (!parsed.tutorialSeen || typeof parsed.tutorialSeen !== "object") parsed.tutorialSeen = {};
           if (parsed.activeFilter === "t3plus") parsed.activeFilter = "t3";
@@ -2399,6 +2374,45 @@
         const data = await response.json();
         return data.result || null;
       }
+      function masteredDaoCount() {
+        return Object.values(state.daoMasteryCounts || {}).filter((count) => Number(count) >= 100).length;
+      }
+      function buildMastersProgressPayload() {
+        const maxTier = Math.max(1, ...Object.values(state.canonicalDaos || {}).map((d) => Number(d?.tier) || 1));
+        return {
+          totalDiscoveries: Array.isArray(state.discoveryLog) ? state.discoveryLog.length : 0,
+          totalCpEarned: Math.max(0, Math.floor(Number(state.totalCpEarned) || 0)),
+          maxTier,
+          activeDaos: Array.isArray(state.activeDaos) ? state.activeDaos.filter(Boolean).length : 0,
+          masteredDaos: masteredDaoCount()
+        };
+      }
+      async function syncMastersQuests(force) {
+        if (!stageUnlocked(6) && !force) return;
+        const lastSyncAt = Number(state.masters?.lastSyncAt || 0);
+        if (!force && Date.now() - lastSyncAt < 15000) return;
+        if (mastersSyncPromise) return mastersSyncPromise;
+        mastersSyncPromise = (async () => {
+          await ensureSessionToken();
+          const resp = await fetch(`${BACKEND_URL}/api/masters/sync`, {
+            method: "POST",
+            headers: backendHeaders(true),
+            body: JSON.stringify(buildMastersProgressPayload())
+          });
+          if (!resp.ok) throw new Error("Masters sync failed: " + resp.status);
+          const data = await resp.json();
+          if (!state.masters || typeof state.masters !== "object") state.masters = { quests: [], lastSyncAt: 0, lastSyncError: "" };
+          state.masters.quests = Array.isArray(data.quests) ? data.quests : [];
+          state.masters.lastSyncAt = Number(data.syncedAt) || Date.now();
+          state.masters.lastSyncError = "";
+        })().catch((err) => {
+          if (!state.masters || typeof state.masters !== "object") state.masters = { quests: [], lastSyncAt: 0, lastSyncError: "" };
+          state.masters.lastSyncError = String(err?.message || "Failed to load masters quests.");
+        }).finally(() => {
+          mastersSyncPromise = null;
+        });
+        return mastersSyncPromise;
+      }
       function chooseSupportiveCandidateModal(options, daoA, daoB, targetTier) {
         return new Promise((resolve, reject) => {
           const cards = (options || []).map((opt, idx) => {
@@ -2406,7 +2420,7 @@
             return `
               <div class="library-item" style="display:grid;gap:6px;">
                 <div><strong>Option ${idx + 1}: ${displayName(normalized)}</strong> — T${normalized.tier} ${normalized.affinity} / ${normalized.harmonyClass}</div>
-                <div style="color:#b8afcf;">${normalized.description || ""}</div>
+                <div style="color:#5a3a1a;">${normalized.description || ""}</div>
                 <div><button data-supportive-pick="${idx}">Choose this Dao</button></div>
               </div>
             `;
@@ -2935,7 +2949,7 @@
             const maxScore = 10;
             const clamped = Math.max(-maxScore, Math.min(maxScore, score));
             const fillPercent = ((clamped + maxScore) / (maxScore * 2)) * 100;
-            const barColor = score > 1 ? "#c9893a" : score < -1 ? "#4a3b7a" : "#8a9baa";
+            const barColor = score > 1 ? "#c8952a" : score < -1 ? "#2d6b4a" : "#7a5c2a";
             const label = score > 1 ? "◐ Creation" : score < -1 ? "◑ Oblivion" : "◯ Balanced";
             polarityHtml = `
               <div class="polarity-bar-container">
@@ -2979,7 +2993,6 @@
         const unlocked = new Set(unlockedSeedNames());
         const nodes = TIER1_SEEDS.map(([name, affinity, harmony]) => {
           const isUnlocked = unlocked.has(name);
-          const unlock = seedUnlockStatus(name);
           const def = state.canonicalDaos?.[name];
           const flavor = String(def?.description || concreteSeedDescription(name)).slice(0, 180);
           return {
@@ -2989,7 +3002,7 @@
               affinity,
               harmony,
               unlocked: isUnlocked ? "1" : "0",
-              hint: unlock.hint,
+              hint: "",
               flavor
             }
           };
@@ -3028,7 +3041,7 @@
             {
               selector: "node",
               style: {
-                "background-color": "#3a3152",
+                "background-color": "#edddb8",
                 label: "data(label)",
                 color: "#e6e0f2",
                 "font-size": 10,
@@ -3038,9 +3051,9 @@
                 height: 52,
                 shape: "ellipse",
                 "border-width": 2,
-                "border-color": "#6a5a8a",
+                "border-color": "#c8952a",
                 "overlay-opacity": 0,
-                "text-outline-color": "#1b132a",
+                "text-outline-color": "#f5ead0",
                 "text-outline-width": 2
               }
             },
@@ -3059,11 +3072,11 @@
             },
             {
               selector: 'node[affinity = "Yin"][unlocked = "1"]',
-              style: { "background-color": "#2f2450", "border-color": "#9b85d4" }
+              style: { "background-color": "#1a4a3a", "border-color": "#2d6b4a" }
             },
             {
               selector: 'node[affinity = "Neutral"][unlocked = "1"]',
-              style: { "background-color": "#2c3442", "border-color": "#8a9baa" }
+              style: { "background-color": "#f0e6cc", "border-color": "#7a5c2a" }
             },
             {
               selector: 'node[affinity = "Paradox"][unlocked = "1"]',
@@ -3073,8 +3086,8 @@
               selector: "edge",
               style: {
                 width: 2,
-                "line-color": "#6b5b8b",
-                "target-arrow-color": "#6b5b8b",
+                "line-color": "#c8952a",
+                "target-arrow-color": "#c8952a",
                 "target-arrow-shape": "triangle",
                 "curve-style": "bezier",
                 opacity: 0.75
@@ -3095,7 +3108,7 @@
           if (!tip || !grid) return;
           const unlockedState = nodeData.unlocked === "1";
           const title = unlockedState ? nodeData.id : "Dormant Seed";
-          const body = unlockedState ? nodeData.flavor : nodeData.hint;
+          const body = unlockedState ? nodeData.flavor : "";
           tip.innerHTML = `<div class="title">${title}</div><div class="hint">${body}</div>`;
           tip.style.left = `${Math.round(renderedPos.x)}px`;
           tip.style.top = `${Math.round(renderedPos.y)}px`;
@@ -3169,7 +3182,7 @@
             return `
               <div class="mastery-card" style="padding:6px;">
                 <div class="mastery-row-head">
-                  <button data-mastery-dao-toggle="${def.name}" style="background:transparent;border:1px solid #4f3e74;border-radius:6px;padding:2px 6px;">${daoCollapsed ? "▸" : "▾"}</button>
+                  <button data-mastery-dao-toggle="${def.name}" style="background:transparent;border:1px solid rgba(200,149,42,.4);border-radius:2px;padding:2px 6px;">${daoCollapsed ? "▸" : "▾"}</button>
                   <strong class="mastery-name">${displayName(def)}</strong>
                   <span class="chip">${HARMONY_ICON[def.harmonyClass] || "·"} ${def.harmonyClass}</span>
                   <span class="chip">${def.affinity}</span>
@@ -3194,7 +3207,7 @@
           return `
             <section style="display:grid;gap:6px;margin-bottom:8px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <button data-mastery-tier-toggle="${tierKey}" style="background:transparent;border:1px solid #4f3e74;border-radius:6px;padding:3px 8px;">${tierCollapsed ? "▸" : "▾"} Tier ${tierNum}</button>
+                <button data-mastery-tier-toggle="${tierKey}" style="background:transparent;border:1px solid rgba(200,149,42,.4);border-radius:2px;padding:3px 8px;">${tierCollapsed ? "▸" : "▾"} Tier ${tierNum}</button>
                 <span class="tooltip">${masteredInTier}/${tierDefs.length} touched</span>
               </div>
               ${tierCollapsed ? "" : `<div class="mastery-tier-grid">${rows}</div>`}
@@ -3207,10 +3220,12 @@
         const libraryBtn = document.getElementById("middleLibraryTabBtn");
         const seedsBtn = document.getElementById("middleSeedsTabBtn");
         const masteryBtn = document.getElementById("middleMasteryTabBtn");
+        const mastersBtn = document.getElementById("middleMastersTabBtn");
         const reasonEl = document.getElementById("forgeReason");
         const libraryUnlocked = stageUnlocked(3);
         const masteryUnlocked = stageUnlocked(6);
         const seedsUnlocked = stageUnlocked(12);
+        const mastersUnlocked = stageUnlocked(6);
         if (libraryBtn) {
           libraryBtn.disabled = !libraryUnlocked;
           libraryBtn.title = libraryUnlocked ? "Library" : "Unlocks after your first discovery.";
@@ -3221,12 +3236,17 @@
         }
         if (seedsBtn) {
           seedsBtn.disabled = !seedsUnlocked;
-          seedsBtn.title = seedsUnlocked ? "Seeds" : "Unlocks with Return to Source progression.";
+          seedsBtn.title = seedsUnlocked ? "Seeds" : "Unlocks at higher tiers.";
         }
-        const requested = ["library", "mastery", "seeds"].includes(state.middlePanelTab) ? state.middlePanelTab : "forge";
+        if (mastersBtn) {
+          mastersBtn.disabled = !mastersUnlocked;
+          mastersBtn.title = mastersUnlocked ? "Masters" : "Unlocks after reading a Tier 2+ Dao.";
+        }
+        const requested = ["library", "mastery", "seeds", "masters"].includes(state.middlePanelTab) ? state.middlePanelTab : "forge";
         const tab = (requested === "library" && !libraryUnlocked)
           || (requested === "mastery" && !masteryUnlocked)
           || (requested === "seeds" && !seedsUnlocked)
+          || (requested === "masters" && !mastersUnlocked)
           ? "forge"
           : requested;
         if (tab !== state.middlePanelTab) state.middlePanelTab = tab;
@@ -3234,12 +3254,13 @@
         if (libraryBtn) libraryBtn.classList.toggle("active", tab === "library");
         if (seedsBtn) seedsBtn.classList.toggle("active", tab === "seeds");
         if (masteryBtn) masteryBtn.classList.toggle("active", tab === "mastery");
+        if (mastersBtn) mastersBtn.classList.toggle("active", tab === "masters");
         if (reasonEl) reasonEl.classList.toggle("hidden", tab !== "forge");
       }
       function renderMiddleSeedsPanel() {
         return `
           <div style="display:grid;gap:8px;">
-            <div class="tooltip">Seed unlocks now follow specific conditions. Locked seeds show their unlock hint.</div>
+            <div id="seedUnlockRequirements" class="tooltip"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button id="seedResetViewBtn">Reset View</button>
               <button id="seedZoomInBtn">Zoom In</button>
@@ -3260,6 +3281,45 @@
               <span class="tooltip">Mastery grows when a Dao is created (forged or manifested). Use this view to track exact thresholds.</span>
             </div>
             <div id="middleMasteryList" class="mastery-list"></div>
+          </div>
+        `;
+      }
+      function renderMiddleMastersPanel() {
+        const quests = Array.isArray(state.masters?.quests) ? state.masters.quests : [];
+        const staleError = String(state.masters?.lastSyncError || "");
+        if (!quests.length) {
+          const errHtml = staleError ? `<div class="tooltip" style="color:#8b1a1a;">${staleError}</div>` : "";
+          return `
+            <div style="display:grid;gap:8px;">
+              <div class="tooltip">The Masters have not posted quests yet.</div>
+              <button id="mastersRefreshBtn">Refresh Quests</button>
+              ${errHtml}
+            </div>
+          `;
+        }
+        const rows = quests.map((q) => {
+          const progress = Number(q.progress || 0);
+          const target = Math.max(1, Number(q.target || 1));
+          const pct = Math.max(0, Math.min(100, Math.round((progress / target) * 100)));
+          return `
+            <div class="library-item" style="display:grid;gap:6px;">
+              <div><strong>${q.title}</strong></div>
+              <div style="color:#5a3a1a;">${q.description}</div>
+              <div class="tooltip">Reward: ${q.rewardLabel || "Unknown"}</div>
+              <div class="mastery-bar"><div class="mastery-bar-fill" style="width:${pct}%;"></div></div>
+              <div class="tooltip">${progress}/${target} ${q.completed ? "• Completed" : ""}</div>
+            </div>
+          `;
+        }).join("");
+        const errHtml = staleError ? `<div class="tooltip" style="color:#8b1a1a;">${staleError}</div>` : "";
+        return `
+          <div style="display:grid;gap:8px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button id="mastersRefreshBtn">Refresh Quests</button>
+              <span class="tooltip">Quests are delivered and tracked on the server.</span>
+            </div>
+            ${errHtml}
+            <div class="library-list">${rows}</div>
           </div>
         `;
       }
@@ -3288,8 +3348,8 @@
         const tiers = Array.from(byTier.keys()).sort((a, b) => b - a);
         const sections = tiers.map((tier) => {
           const defs = byTier.get(tier) || [];
-          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#a9a0c2;">${def.description || ""}</div></div>`).join("");
-          return `<div style="margin:10px 0 6px;color:#c7bcde;font-size:12px;">Tier ${tier} (${defs.length})</div>${rows}`;
+          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#7a5c2a;">${def.description || ""}</div></div>`).join("");
+          return `<div style="margin:10px 0 6px;color:#8b5a2b;font-size:12px;">Tier ${tier} (${defs.length})</div>${rows}`;
         }).join("");
         return `
           <div style="display:grid;gap:8px;">
@@ -3315,6 +3375,15 @@
         if (state.middlePanelTab === "mastery") {
           if (forgeBody) forgeBody.innerHTML = renderMiddleMasteryPanel();
           renderMasteryScreen("middleMasteryList");
+          return;
+        }
+        if (state.middlePanelTab === "masters") {
+          if (forgeBody) forgeBody.innerHTML = renderMiddleMastersPanel();
+          void syncMastersQuests(false).then(() => {
+            if (state.middlePanelTab !== "masters") return;
+            const body = document.querySelector("#forge-panel .panel-body");
+            if (body) body.innerHTML = renderMiddleMastersPanel();
+          });
           return;
         }
         if (!stageUnlocked(2)) {
@@ -3470,7 +3539,6 @@
         const defB = instB ? getDef(instB) : null;
 
         function renderDaoHalf(inst, def, suffix) {
-          const canReturn = def ? (def.tier >= 4 && !def.isReturnedSeed) : false;
           const passives = def
             ? passiveEntriesFromDef(def).slice(0, 14).map(({ seedName, count }) => `<div>${passiveLabelFromEcho(seedName, count)}</div>`).join("")
             : "";
@@ -3508,7 +3576,6 @@
               </details>
             ` : ""}
             <div style="display:flex;gap:8px;flex-wrap:wrap; margin-top:6px;">
-              ${stageUnlocked(12) && canReturn ? `<button id="returnBtn${suffix}" class="return-to-source-btn">Return to Source (復)</button>` : ""}
               ${def ? `<button id="activateDaoBtn${suffix}" class="activate-dao-btn">Activate (Consume)</button>` : ""}
             </div>
             ${voteHtml}
@@ -3526,14 +3593,8 @@
           </div>
         `;
 
-        const btnReturnA = document.getElementById("returnBtnA");
-        if (btnReturnA) btnReturnA.onclick = () => confirmReturn(instA.id);
-
         const btnActivateA = document.getElementById("activateDaoBtnA");
         if (btnActivateA) btnActivateA.onclick = () => confirmActivate(instA.id);
-
-        const btnReturnB = document.getElementById("returnBtnB");
-        if (btnReturnB && instB) btnReturnB.onclick = () => confirmReturn(instB.id);
 
         const btnActivateB = document.getElementById("activateDaoBtnB");
         if (btnActivateB && instB) btnActivateB.onclick = () => confirmActivate(instB.id);
@@ -3600,43 +3661,6 @@
         }
         cpChip.textContent = "CP " + Math.floor(state.comprehensionPoints);
       }
-      function getConvergenceCompassData() {
-        let yangCount = 0, yinCount = 0, neutralCount = 0, weightedYang = 0, weightedYin = 0;
-        Object.values(state.discoveredCombinations || {}).forEach((def) => {
-          if (!def) return;
-          const weight = def.tier;
-          if (def.affinity === "Yang") { yangCount += 1; weightedYang += weight; }
-          else if (def.affinity === "Yin") { yinCount += 1; weightedYin += weight; }
-          else neutralCount += 1;
-        });
-        const total = weightedYang + weightedYin || 1;
-        const yangPercent = Math.round((weightedYang / total) * 100);
-        return { yangCount, yinCount, neutralCount, yangPercent, yinPercent: 100 - yangPercent };
-      }
-      function renderConvergenceCompass() {
-        if (!stageUnlocked(11)) return "";
-        const { yangCount, yinCount, neutralCount, yangPercent, yinPercent } = getConvergenceCompassData();
-        const balance = yangPercent > 65 ? "Strongly Yang — Creation path" : yangPercent < 35 ? "Strongly Yin — Oblivion path" : yangPercent > 52 ? "Yang-leaning" : yangPercent < 48 ? "Yin-leaning" : "Balanced — both paths open";
-        return `
-          <div class="compass-widget" id="convergence-compass">
-            <div class="compass-header">Convergence Compass</div>
-            <div class="compass-bar-row">
-              <span class="compass-label yang-label">☀ Creation</span>
-              <div class="compass-track">
-                <div class="compass-yang-fill" style="width:${yangPercent}%"></div>
-                <div class="compass-yin-fill" style="width:${yinPercent}%"></div>
-              </div>
-              <span class="compass-label yin-label">Oblivion ☾</span>
-            </div>
-            <div class="compass-counts">
-              <span class="yang-count">${yangCount} Yang</span>
-              <span class="balance-text">${balance}</span>
-              <span class="yin-count">${yinCount} Yin</span>
-            </div>
-            <div class="tooltip" style="margin-top:6px;">${neutralCount} Neutral/Paradox</div>
-          </div>
-        `;
-      }
       function renderAll() {
         renderFilters();
         renderStats();
@@ -3690,7 +3714,7 @@
         const rows = TUTORIAL_STEPS.map((step, idx) => {
           const done = idx < completedCount;
           const status = done ? "✓ Completed" : (idx === completedCount ? "→ Current" : "• Upcoming");
-          return `<div class="library-item"><div><strong>${idx + 1}. ${step.objective}</strong> <span style="color:${done ? "#7bc28b" : "#a89fc0"};">${status}</span></div><div style="color:#b8afcf;">${step.hint}</div></div>`;
+          return `<div class="library-item"><div><strong>${idx + 1}. ${step.objective}</strong> <span style="color:${done ? "#2d6b4a" : "#7a5c2a"};">${status}</span></div><div style="color:#5a3a1a;">${step.hint}</div></div>`;
         }).join("");
         showModal(`
           <div class="serif" style="font-size:22px;">Tutorial Chronicle</div>
@@ -3756,13 +3780,13 @@
           <div style="display:grid;gap:10px;">
             <div class="library-item">
               <div><strong>Simple Mode</strong></div>
-              <div style="color:#b8afcf;">Use the classic flow. Every new Dao merger generates one outcome and saves it immediately as canon for that pair.</div>
+              <div style="color:#5a3a1a;">Use the classic flow. Every new Dao merger generates one outcome and saves it immediately as canon for that pair.</div>
               <div class="tooltip" style="margin-top:6px;">Best if you want faster runs with fewer decisions.</div>
               <div style="margin-top:6px;"><button id="chooseSimpleModeBtn">Choose Simple</button></div>
             </div>
             <div class="library-item">
               <div><strong>Supportive Mode</strong></div>
-              <div style="color:#b8afcf;">When a merger is new, the oracle generates 3 candidate Dao outcomes. You pick which one becomes canon for that pair.</div>
+              <div style="color:#5a3a1a;">When a merger is new, the oracle generates 3 candidate Dao outcomes. You pick which one becomes canon for that pair.</div>
               <div class="tooltip" style="margin-top:6px;">You can also upvote/downvote Dao names in the Info panel to flag quality.</div>
               <div style="margin-top:6px;"><button id="chooseSupportiveModeBtn">Choose Supportive</button></div>
             </div>
@@ -3836,8 +3860,8 @@
           const tiers = Array.from(byTier.keys()).sort((a, b) => b - a);
           list.innerHTML = tiers.map((tier) => {
             const defs = byTier.get(tier) || [];
-            const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#a9a0c2;">${def.description || ""}</div></div>`).join("");
-            return `<div style="margin:10px 0 6px;color:#c7bcde;font-size:12px;">Tier ${tier} (${defs.length})</div>${rows}`;
+          const rows = defs.map((def) => `<div class="library-item"><div><strong>${displayName(def)}</strong> — T${def.tier} ${def.affinity} / ${def.harmonyClass}</div><div>${def.parentA || "?"} + ${def.parentB || "?"}</div><div style="color:#7a5c2a;">${def.description || ""}</div></div>`).join("");
+            return `<div style="margin:10px 0 6px;color:#8b5a2b;font-size:12px;">Tier ${tier} (${defs.length})</div>${rows}`;
           }).join("");
         };
         if (search) search.addEventListener("input", render);
@@ -3941,39 +3965,6 @@
           rerenderUI();
         };
       }
-      function confirmReturn(instanceId) {
-        const inst = state.inventory.find((x) => x.id === instanceId);
-        if (!inst) return;
-        const def = getDef(inst);
-        showModal(`
-          <div class="serif" style="font-size:20px;">Return to Source (復)</div>
-          <div>Return ${displayName(def)} to the uncarved block?</div>
-          <div style="display:flex;justify-content:flex-end;gap:8px;">
-            <button id="cancelReturn">Cancel</button>
-            <button id="confirmReturn">Return</button>
-          </div>
-        `);
-        document.getElementById("cancelReturn").onclick = closeModal;
-        document.getElementById("confirmReturn").onclick = () => {
-          const original = getDef(inst);
-          removeInventoryId(instanceId);
-          state.decayedDaos.push(original.name);
-          const unlockedSeeds = unlockSeedsByConditions();
-          if (unlockedSeeds.length) {
-            showToast(`New seeds unlocked: ${unlockedSeeds.join(", ")}.`, "success");
-          } else {
-            const nextLocked = lockedSeedNames()[0];
-            if (nextLocked) {
-              const hint = seedUnlockStatus(nextLocked).hint;
-              showToast(`No new seed unlocked. Hint: ${hint}`, "info");
-            } else {
-              showToast("All base seeds are already unlocked.", "info");
-            }
-          }
-          awardCp(30, `${displayName(original)} has returned to the uncarved block, its essence distilled.`);
-          saveState(); checkTutorialAdvancement(); rerenderUI(); closeModal();
-        };
-      }
       function confirmActivate(instanceId) {
         const inst = state.inventory.find((x) => x.id === instanceId);
         if (!inst) return;
@@ -4033,10 +4024,10 @@
                 const unlocked = activeSlotUnlocked(idx);
                 if (!unlocked) {
                   const txt = idx === 1 ? "Locked (unlocks at T3)" : (idx === 2 ? "Locked (unlocks at T6)" : "Locked");
-                  return `<div class="library-item"><div><strong>Slot ${idx + 1}</strong> <span style="color:#a9a0c2;">${txt}</span></div><div></div></div>`;
+                  return `<div class="library-item"><div><strong>Slot ${idx + 1}</strong> <span style="color:#7a5c2a;">${txt}</span></div><div></div></div>`;
                 }
                 if (!slot) {
-                  return `<div class="library-item"><div><strong>Slot ${idx + 1}</strong> <span style="color:#a9a0c2;">Empty</span></div><div></div></div>`;
+                  return `<div class="library-item"><div><strong>Slot ${idx + 1}</strong> <span style="color:#7a5c2a;">Empty</span></div><div></div></div>`;
                 }
                 return `<div class="library-item"><div><strong>Slot ${idx + 1}. ${displayName(slot)}</strong></div><div style="display:flex;justify-content:flex-end;"><button id="removeActiveSlotBtn_${idx}" class="hint-btn" style="white-space:nowrap;">Remove</button></div></div>`;
               })
@@ -4376,7 +4367,7 @@
               if (!stageUnlocked(3)) { showToast("Library unlocks after your first discovery.", "info"); return; }
               state.middlePanelTab = "library"; rerenderUI();
             } else if (target.id === "middleSeedsTabBtn") {
-              if (!stageUnlocked(12)) { showToast("Seeds unlock after Return to Source opens.", "info"); return; }
+              if (!stageUnlocked(12)) { showToast("Seeds unlock at Tier 4.", "info"); return; }
               state.middlePanelTab = "seeds";
               state.tutorialActions.openedSeedsTab = true;
               checkTutorialAdvancement();
@@ -4387,6 +4378,12 @@
               state.tutorialActions.openedMasteryTab = true;
               checkTutorialAdvancement();
               rerenderUI();
+            } else if (target.id === "middleMastersTabBtn") {
+              if (!stageUnlocked(6)) { showToast("Masters unlock after reading a Tier 2+ Dao.", "info"); return; }
+              state.middlePanelTab = "masters";
+              rerenderUI();
+            } else if (target.id === "mastersRefreshBtn") {
+              void syncMastersQuests(true).then(() => rerenderUI());
             }
             else if (target.id === "seedResetViewBtn") {
               if (seedGraphCy) seedGraphCy.fit(undefined, 24);
@@ -4419,7 +4416,6 @@
             if (!btn) return;
             activeLeftTab = btn.dataset.leftTab;
             applyLeftTab(activeLeftTab);
-            renderCultivatorCompass();
           };
         }
         const replaceActiveBtn = document.getElementById("replaceActiveDaoBtn");
@@ -4557,6 +4553,7 @@
       function initRuntime() {
         showBackendConfigNotice();
         unlockSeedsByConditions();
+        void syncMastersQuests(false);
         bindEvents();
         startSeedCooldownUiLoop();
         startDecayLoop();
@@ -4589,5 +4586,6 @@
       initialize();
     })();
   </script>
+  <script src="./xianxia-animations.js"></script>
 </body>
 </html>

@@ -1,0 +1,651 @@
+:root {
+  --ink: #2a2140;
+  --ink-mid: #2e1a0c;
+  --cinnabar: #8b1a1a;
+  --cinnabar-dim: #5a1010;
+  --jade: #2d6b4a;
+  --jade-light: #4a9b6f;
+  --gold: #c8952a;
+  --gold-pale: #e8c97a;
+  --earth-tone: #7a5c2a;
+  --void: #2a1a3a;
+  --page: #f5ead0;
+  --page-worn: #edddb8;
+  --page-dark: #c9ad7a;
+  --bg: #0d0905;
+  --scroll-rod: linear-gradient(to right, #3a1a06, #8b5a2b, #c8952a, #e8c97a, #c8952a, #8b5a2b, #3a1a06);
+}
+
+/* ===== Foundation ===== */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse at 25% 25%, #1f0d03 0%, transparent 50%),
+    radial-gradient(ellipse at 75% 75%, #080503 0%, transparent 50%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+  color: var(--ink);
+  font-family: "Noto Serif SC", "Noto Serif", serif !important;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#tsparticles {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+}
+
+button, input, select {
+  font-family: "Noto Serif SC", "Noto Serif", serif !important;
+  border-radius: 2px !important;
+}
+
+.serif, h1, h2, h3, .dao-name,
+.middle-panel-tabs button,
+.left-tabs button,
+.mobile-tabs button,
+.forge-btn,
+.tier-badge {
+  font-family: "Ma Shan Zheng", "Liu Jian Mao Cao", serif !important;
+}
+
+/* ===== Scroll frame ===== */
+.scroll-wrapper {
+  width: min(1480px, 96vw);
+  margin: 0.9rem auto;
+}
+
+.scroll-rod {
+  height: 24px;
+  background: var(--scroll-rod);
+  border-radius: 2px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  position: relative;
+}
+
+.scroll-rod::before,
+.scroll-rod::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #7b5519;
+  background: radial-gradient(circle at 34% 34%, var(--gold-pale), var(--gold) 70%, #8d661f);
+}
+
+.scroll-rod::before { left: -9px; }
+.scroll-rod::after { right: -9px; }
+
+.scroll-body {
+  background-color: var(--page);
+  background-image:
+    repeating-linear-gradient(180deg, transparent, transparent 30px, rgba(139, 90, 43, 0.04) 30px, rgba(139, 90, 43, 0.04) 31px),
+    repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(139, 90, 43, 0.02) 24px, rgba(139, 90, 43, 0.02) 25px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p)' opacity='0.07'/%3E%3C/svg%3E");
+  border-inline: 1px solid var(--page-dark);
+  padding: 0.4rem;
+}
+
+/* ===== Top bar / masthead ===== */
+.topbar {
+  background: var(--scroll-rod) !important;
+  border: 1px solid #7b5519 !important;
+  border-radius: 2px !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.topbar .serif { color: #f5ead0 !important; letter-spacing: 0.12em; }
+.topbar .title-wrap > div > div:last-child { color: var(--gold-pale) !important; opacity: 0.85; }
+
+.topbar-actions .library-btn,
+.topbar-actions #tutorialTopBtn,
+.topbar-actions #optionsBtn {
+  background: transparent !important;
+  border: 1px solid var(--gold-pale) !important;
+  color: var(--gold) !important;
+}
+
+#saveStatus {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--gold-pale) !important;
+  opacity: 0.7;
+  font-family: "Noto Serif", serif !important;
+  font-style: italic;
+  padding-inline: 0;
+}
+
+/* ===== Panels ===== */
+.screen { grid-template-columns: 350px 1fr 300px; }
+
+.panel,
+.modal,
+.modal-box {
+  background-color: var(--page) !important;
+  background-image:
+    repeating-linear-gradient(180deg, transparent, transparent 30px, rgba(139, 90, 43, 0.04) 30px, rgba(139, 90, 43, 0.04) 31px),
+    repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(139, 90, 43, 0.02) 24px, rgba(139, 90, 43, 0.02) 25px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p2)' opacity='0.07'/%3E%3C/svg%3E") !important;
+  border: 1px solid var(--page-dark) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  color: var(--ink) !important;
+}
+
+.panel-header { border-bottom: 1px solid rgba(200, 149, 42, 0.2) !important; }
+
+/* ===== Cultivator rank/cp header ===== */
+#inventory-panel .panel-header > div:first-child {
+  width: 100%;
+  position: relative;
+  border: 1px solid var(--gold) !important;
+  padding: 0.6rem;
+  background: var(--page-worn);
+}
+
+#inventory-panel .panel-header > div:first-child::before,
+#inventory-panel .panel-header > div:first-child::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+}
+
+#inventory-panel .panel-header > div:first-child::before {
+  top: 4px;
+  left: 4px;
+  border-left: 1px solid var(--gold);
+  border-top: 1px solid var(--gold);
+}
+
+#inventory-panel .panel-header > div:first-child::after {
+  right: 4px;
+  bottom: 4px;
+  border-right: 1px solid var(--gold);
+  border-bottom: 1px solid var(--gold);
+}
+
+#player-rank-badge,
+#cp-counter {
+  font-family: "Noto Serif SC", serif !important;
+  font-weight: 700 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+#player-rank-badge { color: var(--ink-mid) !important; }
+#cp-counter { color: var(--cinnabar) !important; }
+
+/* ===== Tabs ===== */
+.left-tabs,
+.middle-panel-tabs {
+  border-bottom: 1px solid rgba(200, 149, 42, 0.2) !important;
+  gap: 0.35rem !important;
+}
+
+.left-tabs button,
+.middle-panel-tabs button,
+.mobile-tabs button {
+  border: 1px solid rgba(232, 201, 122, 0.45) !important;
+  border-radius: 2px !important;
+  background: rgba(46, 26, 12, 0.4) !important;
+  color: rgba(232, 201, 122, 0.55) !important;
+  letter-spacing: 0.15em;
+  transition: background-color 200ms ease, color 200ms ease !important;
+}
+
+#leftTabs button[data-left-tab="daos"],
+#middleLibraryTabBtn {
+  background-color: rgba(46, 26, 12, 0.4) !important;
+}
+
+.left-tabs button.active,
+.middle-panel-tabs button.active,
+.mobile-tabs button.active {
+  background: var(--page-worn) !important;
+  color: rgba(46, 26, 12, 1) !important;
+  border-bottom: 2px solid var(--gold) !important;
+}
+
+#leftTabs button[data-left-tab="cultivator"]::after,
+#leftTabs button[data-left-tab="daos"]::after {
+  display: block;
+  margin-top: 0.08rem;
+  font-size: 0.7rem;
+  color: rgba(200, 149, 42, 0.6);
+  letter-spacing: 0;
+}
+
+#leftTabs button[data-left-tab="cultivator"]::after { content: "修士"; }
+#leftTabs button[data-left-tab="daos"]::after { content: "道"; }
+
+#forgeReason {
+  font-family: "Noto Serif", serif !important;
+  font-style: italic;
+  color: rgba(200, 149, 42, 0.6) !important;
+}
+
+/* ===== Buttons ===== */
+.forge-btn,
+#seedManifestBtnForge,
+#tierManifestBtn2,
+#tierManifestBtn3,
+#tierManifestBtn4,
+#chooseSimpleModeBtn,
+#chooseSupportiveModeBtn,
+#tutorialReviewBtn {
+  background: var(--cinnabar) !important;
+  color: #f5ead0 !important;
+  border: 1px solid #5a1010 !important;
+  letter-spacing: 0.2em;
+  border-radius: 2px !important;
+}
+
+.forge-btn:hover:enabled,
+#seedManifestBtnForge:hover:enabled,
+#tierManifestBtn2:hover:enabled,
+#tierManifestBtn3:hover:enabled,
+#tierManifestBtn4:hover:enabled,
+#chooseSimpleModeBtn:hover:enabled,
+#chooseSupportiveModeBtn:hover:enabled,
+#tutorialReviewBtn:hover:enabled { background: #a02020 !important; transform: none !important; }
+
+.forge-btn:active:enabled,
+#seedManifestBtnForge:active:enabled,
+#tierManifestBtn2:active:enabled,
+#tierManifestBtn3:active:enabled,
+#tierManifestBtn4:active:enabled,
+#chooseSimpleModeBtn:active:enabled,
+#chooseSupportiveModeBtn:active:enabled,
+#tutorialReviewBtn:active:enabled { transform: translateY(1px) !important; }
+
+.hint-btn,
+.library-btn,
+#tutorialDismissBtn,
+.dao-remove-btn {
+  background: transparent !important;
+  border: 1px solid var(--gold-pale) !important;
+  color: var(--gold) !important;
+}
+
+.dao-remove-btn {
+  border-color: var(--cinnabar-dim) !important;
+  color: var(--cinnabar) !important;
+  border-radius: 2px !important;
+}
+
+button:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  background: rgba(122, 92, 42, 0.28) !important;
+  border-color: rgba(200, 149, 42, 0.3) !important;
+  color: rgba(46, 26, 12, 0.7) !important;
+}
+.forge-btn:disabled { background: var(--cinnabar-dim) !important; }
+
+/* ===== Tutorial panel ===== */
+#tutorialBar {
+  background: var(--page) !important;
+  border: 1px solid var(--gold) !important;
+  border-radius: 2px !important;
+}
+
+#tutorialStepCircle {
+  background: transparent !important;
+  border: 1px solid var(--cinnabar) !important;
+  color: var(--cinnabar) !important;
+  font-family: "Ma Shan Zheng", serif !important;
+}
+
+.tutorial-objective {
+  color: var(--ink-mid) !important;
+  font-family: "Noto Serif SC", serif !important;
+  font-weight: 700;
+}
+
+.tutorial-hint {
+  color: rgba(26, 14, 8, 0.85) !important;
+  font-family: "Noto Serif", serif !important;
+  font-style: italic;
+}
+
+.tutorial-dot.done,
+.tutorial-dot.current { background: var(--cinnabar) !important; border-color: var(--cinnabar) !important; }
+
+/* ===== Dao cards ===== */
+.dao-card {
+  border: 1px solid var(--gold-pale) !important;
+  border-radius: 2px !important;
+  padding: 0.85rem 0.7rem 2.05rem !important;
+  background: linear-gradient(160deg, #fdf3e0, #f0e3c0) !important;
+  box-shadow: inset 0 0 0 1px rgba(200, 149, 42, 0.35) !important;
+}
+
+.dao-card.affinity-yin {
+  background-color: rgba(139, 26, 26, 1) !important;
+  background-image: none !important;
+  color: #d4c8e8 !important;
+}
+
+.dao-name {
+  color: var(--ink-mid);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.dao-card.affinity-yin .dao-name { color: #d4c8e8 !important; }
+
+.dao-meta {
+  font-family: "Noto Serif SC", serif !important;
+  font-size: 0.74rem !important;
+}
+
+.dao-meta .aff-dot { background: transparent !important; border: 0 !important; width: auto !important; height: auto !important; }
+.dao-meta .aff-dot::before {
+  content: "⊙";
+  color: var(--cinnabar);
+  font-size: 0.9rem;
+}
+
+.dao-card.affinity-yin .dao-meta .aff-dot::before { content: "☾"; color: #d4c8e8; }
+.dao-meta span:last-child { color: var(--earth-tone); }
+
+.tier-badge {
+  border: 1px solid rgba(200, 149, 42, 0.45) !important;
+  border-radius: 2px !important;
+  padding-inline: 0.35rem !important;
+}
+
+.tier-low {
+  color: var(--ink) !important;
+  background-color: rgba(42, 42, 58, 1) !important;
+}
+.tier-mid { color: var(--jade) !important; }
+.tier-high { color: var(--gold) !important; }
+.tier-t9-yang, .tier-t9-yin { color: var(--cinnabar) !important; box-shadow: 0 0 8px rgba(139, 26, 26, 0.28) !important; }
+
+.fav-toggle {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--gold-pale) !important;
+}
+
+.fav-toggle::before { content: "✦"; }
+.fav-toggle.active { color: var(--gold) !important; }
+
+.fav-toggle { font-size: 0; }
+.fav-toggle::before { font-size: 0.95rem; }
+
+.dao-card:hover {
+  border-color: var(--gold) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 0 var(--gold-pale) inset !important;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease !important;
+}
+
+/* ===== Active Dao slots ===== */
+.active-dao-grid { gap: 8px; }
+
+.active-dao-slot {
+  border-radius: 2px !important;
+  border: 1px dashed var(--gold-pale) !important;
+  background: rgba(45, 107, 74, 0.04) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.active-dao-slot .active-dao-title {
+  font-family: "Noto Serif SC", serif !important;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--earth-tone);
+}
+
+.active-dao-slot:not(.filled):not(.locked)::after {
+  content: "⬡";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--gold-pale);
+  opacity: 0.6;
+  font-size: 1.1rem;
+}
+
+.active-dao-slot.filled {
+  border: 1px solid var(--jade) !important;
+  box-shadow: inset 0 0 12px rgba(45, 107, 74, 0.2) !important;
+}
+
+.active-dao-slot.locked {
+  border-style: solid !important;
+  background: rgba(46, 26, 12, 0.4) !important;
+  opacity: 0.4;
+}
+
+.active-dao-slot.locked::after {
+  content: "封";
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  font-family: "Ma Shan Zheng", serif !important;
+  color: var(--gold-pale);
+}
+
+#activeBonusSummary.bonus-summary {
+  background: rgba(46, 26, 12, 0.35) !important;
+  border-color: rgba(200, 149, 42, 0.3) !important;
+}
+
+/* ===== Forge altar ===== */
+.forge-slots {
+  border: 1px solid rgba(200, 149, 42, 0.4);
+  background: var(--page-worn);
+  padding: 0.7rem;
+  align-items: center;
+}
+
+.slot {
+  min-height: 112px;
+  border: 1px dashed var(--gold-pale) !important;
+  border-radius: 2px !important;
+  background: linear-gradient(160deg, var(--page-worn), var(--page)) !important;
+  box-shadow: inset 0 8px 22px rgba(122, 92, 42, 0.08);
+}
+
+.slot:empty::before {
+  content: "⬡";
+  display: block;
+  text-align: center;
+  font-size: 1.4rem;
+  color: rgba(232, 201, 122, 0.6);
+  margin-top: 0.3rem;
+}
+
+.slot:empty::after {
+  content: "Select a Dao";
+  display: block;
+  text-align: center;
+  color: rgba(232, 201, 122, 0.5);
+  font-family: "Ma Shan Zheng", serif !important;
+}
+
+.forge-mid::before {
+  content: "✦";
+  display: block;
+  text-align: center;
+  color: var(--gold);
+  font-size: 1.5rem;
+  line-height: 1;
+  margin-bottom: 0.32rem;
+}
+
+#knownForgeResult {
+  border: double 2px var(--gold-pale) !important;
+  padding: 0.55rem;
+}
+
+#resonance-indicator {
+  font-family: "Noto Serif", serif !important;
+  font-style: italic;
+  border-radius: 2px !important;
+}
+
+#forgeCost {
+  color: var(--cinnabar) !important;
+  font-family: "Noto Serif SC", serif !important;
+}
+
+#forgeCost::before { content: "靈石 "; color: var(--earth-tone); }
+
+/* ===== Info panel ===== */
+#info-panel .panel-body { position: relative; overflow: hidden; }
+
+#infoPanelBody {
+  font-family: "Noto Serif", serif !important;
+  font-style: italic;
+  color: var(--ink-mid) !important;
+  font-size: 1.1rem;
+  line-height: 1.9;
+}
+
+#info-panel .panel-body::before {
+  content: "☯";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 8rem;
+  line-height: 1;
+  color: rgba(200, 149, 42, 0.15);
+  font-family: "Ma Shan Zheng", serif !important;
+  pointer-events: none;
+}
+
+/* ===== Recent discoveries ===== */
+#recentFeed {
+  background: var(--page-worn) !important;
+  border-left: 3px solid var(--cinnabar) !important;
+  padding: 0.45rem 0.5rem;
+}
+
+#recentFeed > * {
+  color: var(--ink-mid) !important;
+  font-family: "Noto Serif SC", serif !important;
+  font-size: 0.85rem;
+  animation: xianxiaFadeIn 180ms ease;
+}
+
+#recentFeed > *::before {
+  content: "⟶ ";
+  color: var(--gold);
+}
+
+@keyframes xianxiaFadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Modal overhaul ===== */
+.modal-root,
+.modal-overlay {
+  background: rgba(13, 9, 5, 0.75) !important;
+  backdrop-filter: none !important;
+}
+
+.modal,
+.modal-box {
+  border: 1px solid var(--gold) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+.modal::before,
+.modal::after,
+.modal-box::before,
+.modal-box::after {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
+.modal::before,
+.modal-box::before {
+  top: 5px;
+  left: 5px;
+  border-left: 1px solid var(--gold);
+  border-top: 1px solid var(--gold);
+}
+
+.modal::after,
+.modal-box::after {
+  right: 5px;
+  bottom: 5px;
+  border-right: 1px solid var(--gold);
+  border-bottom: 1px solid var(--gold);
+}
+
+.modal h2,
+.modal .serif,
+.modal-box h2 {
+  color: var(--ink-mid) !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-shadow: none !important;
+}
+
+.modal article,
+.modal .mode-card,
+.modal .option-card {
+  background: var(--page-worn) !important;
+  border: 1px solid var(--gold-pale) !important;
+  border-radius: 2px !important;
+}
+
+.modal p,
+.modal .desc {
+  font-family: "Noto Serif", serif !important;
+  font-style: italic;
+  color: rgba(26, 14, 8, 0.8) !important;
+}
+
+/* ===== Ornament and trigrams ===== */
+.harmony-bars .bar-row span:first-child::after { margin-left: 0.4rem; }
+.harmony-bars .bar-row:nth-child(1) span:first-child::after { content: "☰"; }
+.harmony-bars .bar-row:nth-child(2) span:first-child::after { content: "☷"; }
+.harmony-bars .bar-row:nth-child(3) span:first-child::after { content: "☱"; }
+
+.ornament-divider::before {
+  content: "── ✦ ☯ ✦ ──";
+  display: block;
+  text-align: center;
+  color: var(--gold);
+  letter-spacing: 0.4em;
+  font-size: 0.9rem;
+  margin: 1.5em 0;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1100px) {
+  .screen { grid-template-columns: 1fr; }
+}

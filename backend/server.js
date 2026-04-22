@@ -172,6 +172,56 @@ const daoVoteSchema = z.object({
   pairKey: z.string().trim().max(180).optional(),
   sourceMode: z.enum(["simple", "supportive"]).optional()
 });
+const mastersProgressSchema = z.object({
+  totalDiscoveries: z.number().int().min(0).max(100000),
+  totalCpEarned: z.number().int().min(0).max(100000000),
+  maxTier: z.number().int().min(1).max(9),
+  activeDaos: z.number().int().min(0).max(3),
+  masteredDaos: z.number().int().min(0).max(10000)
+});
+
+const MASTER_QUESTS = [
+  {
+    id: "first_steps",
+    title: "Master Yun: First Steps",
+    description: "Discover 5 Daos to prove your foundation is stable.",
+    metric: "totalDiscoveries",
+    target: 5,
+    rewardLabel: "+30 CP (client-side reward hook placeholder)"
+  },
+  {
+    id: "echo_keeper",
+    title: "Master Yin: Echo Keeper",
+    description: "Activate all 3 active Dao slots at once.",
+    metric: "activeDaos",
+    target: 3,
+    rewardLabel: "Echo attunement seal"
+  },
+  {
+    id: "tier_climber",
+    title: "Master Jian: Tier Climber",
+    description: "Reach Tier 5 in your discovered Daos.",
+    metric: "maxTier",
+    target: 5,
+    rewardLabel: "Tier path guidance"
+  },
+  {
+    id: "insight_collector",
+    title: "Master Hua: Insight Collector",
+    description: "Accumulate 300 total CP earned.",
+    metric: "totalCpEarned",
+    target: 300,
+    rewardLabel: "Meditation transcript"
+  },
+  {
+    id: "discipline_scholar",
+    title: "Master Rui: Discipline Scholar",
+    description: "Reach mastery in 3 different Daos (100+ each).",
+    metric: "masteredDaos",
+    target: 3,
+    rewardLabel: "Master's annotation"
+  }
+];
 
 const allowedAffinities = new Set(["Yin", "Yang", "Neutral", "Paradox"]);
 const allowedHarmony = new Set(["Heaven", "Earth", "Human"]);
@@ -208,6 +258,12 @@ function seededUnitInterval(seed) {
   const hex = crypto.createHash("sha256").update(seed).digest("hex").slice(0, 8);
   const intVal = Number.parseInt(hex, 16);
   return Number.isFinite(intVal) ? intVal / 0xffffffff : 0.5;
+}
+
+function getQuestProgressValue(quest, metrics) {
+  const raw = Number(metrics?.[quest.metric] || 0);
+  const safe = Number.isFinite(raw) ? raw : 0;
+  return Math.max(0, Math.min(quest.target, safe));
 }
 
 // ---------------------------------------------------------------------------
@@ -494,7 +550,7 @@ app.post("/api/session", sessionLimiter, async (req, res) => {
   const ipHash = hashIp(getClientIp(req));
   const ttl = Number(SESSION_TTL_SECONDS);
   const token = jwt.sign(
-    { ip_hash: ipHash, scopes: ["forge:generate", "forge:hint", "forge:vote"] },
+    { ip_hash: ipHash, scopes: ["forge:generate", "forge:hint", "forge:vote", "masters:quests"] },
     SERVER_AUTH_TOKEN,
     {
       issuer: SESSION_ISSUER,
@@ -761,6 +817,70 @@ app.post("/api/hint", generateLimiter, requireSessionScope("forge:hint"), async 
   }
 });
 
+app.post("/api/masters/sync", readLimiter, requireSessionScope("masters:quests"), async (req, res) => {
+  const parsed = mastersProgressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid masters progress payload" });
+  }
+  const ipHash = hashIp(getClientIp(req));
+  const metrics = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const quest of MASTER_QUESTS) {
+      const progress = getQuestProgressValue(quest, metrics);
+      await client.query(
+        `INSERT INTO masters_quest_progress
+          (ip_hash, quest_id, progress_value, completed_at, last_seen_at)
+         VALUES ($1, $2, $3, CASE WHEN $3 >= $4 THEN NOW() ELSE NULL END, NOW())
+         ON CONFLICT (ip_hash, quest_id) DO UPDATE
+           SET progress_value = GREATEST(masters_quest_progress.progress_value, EXCLUDED.progress_value),
+               completed_at = CASE
+                 WHEN masters_quest_progress.completed_at IS NOT NULL THEN masters_quest_progress.completed_at
+                 WHEN EXCLUDED.progress_value >= $4 THEN NOW()
+                 ELSE NULL
+               END,
+               last_seen_at = NOW()`,
+        [ipHash, quest.id, progress, quest.target]
+      );
+    }
+    const rows = await client.query(
+      `SELECT quest_id, progress_value, completed_at, claimed_at
+         FROM masters_quest_progress
+        WHERE ip_hash = $1`,
+      [ipHash]
+    );
+    await client.query("COMMIT");
+    const rowById = new Map(rows.rows.map((r) => [r.quest_id, r]));
+    const quests = MASTER_QUESTS.map((quest) => {
+      const row = rowById.get(quest.id);
+      const progress = Number(row?.progress_value || 0);
+      return {
+        id: quest.id,
+        title: quest.title,
+        description: quest.description,
+        rewardLabel: quest.rewardLabel,
+        progress,
+        target: quest.target,
+        completed: progress >= quest.target,
+        completedAt: row?.completed_at || null,
+        claimedAt: row?.claimed_at || null
+      };
+    });
+    return res.json({ quests, syncedAt: Date.now() });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("masters sync failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
+    return res.status(500).json({ error: "Masters sync failed" });
+  } finally {
+    client.release();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Error handler
 // ---------------------------------------------------------------------------
@@ -806,6 +926,18 @@ async function ensureTables() {
   `);
   await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_dao_name_tier ON forge_name_votes(dao_name, tier)");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_name_votes_created_at ON forge_name_votes(created_at DESC)");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS masters_quest_progress (
+      ip_hash TEXT NOT NULL,
+      quest_id TEXT NOT NULL,
+      progress_value INTEGER NOT NULL DEFAULT 0,
+      completed_at TIMESTAMPTZ,
+      claimed_at TIMESTAMPTZ,
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (ip_hash, quest_id)
+    )
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_masters_quest_progress_ip_hash ON masters_quest_progress(ip_hash)");
 }
 
 async function start() {

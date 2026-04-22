@@ -825,6 +825,7 @@ app.post("/api/masters/sync", readLimiter, requireSessionScope("masters:quests")
   const ipHash = hashIp(getClientIp(req));
   const metrics = parsed.data;
   const client = await pool.connect();
+  console.log("masters sync build X");
   try {
     await client.query("BEGIN");
     for (const quest of MASTER_QUESTS) {
@@ -832,17 +833,22 @@ app.post("/api/masters/sync", readLimiter, requireSessionScope("masters:quests")
       const target = Number.parseInt(String(quest.target), 10) || 0;
       await client.query(
         `INSERT INTO masters_quest_progress
-          (ip_hash, quest_id, progress_value, completed_at, last_seen_at)
-         VALUES ($1, $2, $3::int, NULL, NOW())
+          (ip_hash, quest_id, progress_value, last_seen_at)
+         VALUES ($1, $2, $3::int, NOW())
          ON CONFLICT (ip_hash, quest_id) DO UPDATE
            SET progress_value = GREATEST(masters_quest_progress.progress_value, EXCLUDED.progress_value),
-               completed_at = CASE
-                 WHEN masters_quest_progress.completed_at IS NOT NULL THEN masters_quest_progress.completed_at
-                 WHEN GREATEST(masters_quest_progress.progress_value, EXCLUDED.progress_value) >= $4::int THEN NOW()
-                 ELSE NULL
-               END,
                last_seen_at = NOW()`,
-        [ipHash, quest.id, progress, target]
+        [ipHash, quest.id, progress]
+      );
+      await client.query(
+        `UPDATE masters_quest_progress
+            SET completed_at = COALESCE(
+              completed_at,
+              CASE WHEN progress_value >= $3::int THEN NOW() ELSE NULL END
+            )
+          WHERE ip_hash = $1
+            AND quest_id = $2`,
+        [ipHash, quest.id, target]
       );
     }
     const rows = await client.query(

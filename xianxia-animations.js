@@ -1,55 +1,6 @@
 (function () {
   "use strict";
 
-  function classifyCard(card) {
-    if (!card || card.dataset.xianxiaClassified === "1") return;
-    const text = (card.textContent || "").toLowerCase();
-    if (text.includes("yin") || text.includes("oblivion")) {
-      card.classList.add("affinity-yin");
-      card.dataset.affinity = "Yin";
-    } else if (text.includes("yang") || text.includes("creation")) {
-      card.classList.add("affinity-yang");
-      card.dataset.affinity = "Yang";
-    }
-    card.dataset.xianxiaClassified = "1";
-  }
-
-  function animateCardDraw(card) {
-    if (!card || card.dataset.xianxiaAnimated === "1") return;
-    card.dataset.xianxiaAnimated = "1";
-    classifyCard(card);
-    if (!window.gsap) return;
-    window.gsap.from(card, {
-      duration: 0.5,
-      y: -30,
-      opacity: 0,
-      rotation: window.gsap.utils.random(-4, 4),
-      ease: "back.out(1.4)"
-    });
-  }
-
-  function setupInventoryObserver() {
-    const grid = document.getElementById("inventoryGrid");
-    if (!grid || typeof MutationObserver === "undefined") return;
-
-    Array.from(grid.querySelectorAll(".dao-card")).forEach((card) => {
-      classifyCard(card);
-      card.dataset.xianxiaAnimated = "1";
-    });
-
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (!(node instanceof HTMLElement)) return;
-          if (node.classList.contains("dao-card")) animateCardDraw(node);
-          node.querySelectorAll?.(".dao-card").forEach((card) => animateCardDraw(card));
-        });
-      });
-    });
-
-    observer.observe(grid, { childList: true, subtree: true });
-  }
-
   function startPageEntrance() {
     if (!window.gsap) return;
     const tl = window.gsap.timeline();
@@ -85,6 +36,5 @@
   document.addEventListener("DOMContentLoaded", function () {
     startPageEntrance();
     startParticles();
-    setupInventoryObserver();
   });
 })();

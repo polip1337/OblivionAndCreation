@@ -336,6 +336,7 @@ function normalizeForgeResult(raw, daoA, daoB, tier) {
     name = name.replace(/\s+Dao\s*$/i, "").trim();
     name = name.replace(/^Dao\s+of\s+/i, "").trim();
     name = name.replace(/\bDao\s+of\s+/ig, "").trim();
+    name = name.replace(/\bthe\b/ig, " ").replace(/\s+/g, " ").trim();
     // Force-strip numeric tokens/suffixes from generated names.
     name = name.replace(/\b\d+\b/g, " ").replace(/\s+/g, " ").trim();
     const parts = name.split(/\s+(?:and|&)\s+/i).map((p) => p.trim()).filter(Boolean);
@@ -802,6 +803,34 @@ app.post("/api/hint", generateLimiter, requireSessionScope("forge:hint"), async 
       detail: err?.detail
     });
     return res.status(502).json({ error: "Hint generation failed" });
+  }
+});
+
+// Read all tree-seeded Dao definitions for client-side import.
+app.get("/api/tree-daos", readLimiter, async (_req, res) => {
+  try {
+    const rows = await pool.query(
+      `SELECT result_name, dao_a, dao_b, result_json, created_at
+         FROM forge_results
+        WHERE generated_by_ip_hash = 'tree-seed'
+        ORDER BY COALESCE((result_json->>'tier')::int, 0) ASC, result_name ASC, created_at ASC`
+    );
+    return res.json({
+      count: rows.rowCount || 0,
+      daos: rows.rows.map((r) => ({
+        resultName: r.result_name,
+        daoA: r.dao_a,
+        daoB: r.dao_b,
+        result: r.result_json
+      }))
+    });
+  } catch (err) {
+    console.error("tree dao query failed:", {
+      message: err?.message,
+      code: err?.code,
+      detail: err?.detail
+    });
+    return res.status(500).json({ error: "Failed to query tree daos" });
   }
 });
 

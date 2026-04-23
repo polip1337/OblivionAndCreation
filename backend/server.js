@@ -926,14 +926,25 @@ async function ensureTables() {
   `);
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_forge_results_result_name_unique ON forge_results(result_name)");
   await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_result_pairs_result_name ON forge_result_pairs(result_name)");
-  await pool.query(`
-    INSERT INTO forge_result_pairs (pair_key, result_name, dao_a, dao_b)
-    SELECT fr.pair_key, fr.result_name, fr.dao_a, fr.dao_b
-      FROM forge_results fr
-     WHERE fr.pair_key IS NOT NULL
-       AND fr.result_name IS NOT NULL
-    ON CONFLICT (pair_key) DO NOTHING
+  const { rows: forgeResultsPairKeyRows } = await pool.query(`
+    SELECT EXISTS (
+      SELECT 1
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'forge_results'
+         AND column_name = 'pair_key'
+    ) AS has_pair_key
   `);
+  if (forgeResultsPairKeyRows[0]?.has_pair_key) {
+    await pool.query(`
+      INSERT INTO forge_result_pairs (pair_key, result_name, dao_a, dao_b)
+      SELECT fr.pair_key, fr.result_name, fr.dao_a, fr.dao_b
+        FROM forge_results fr
+       WHERE fr.pair_key IS NOT NULL
+         AND fr.result_name IS NOT NULL
+      ON CONFLICT (pair_key) DO NOTHING
+    `);
+  }
   await pool.query(`
     DELETE FROM forge_result_pairs fp
      WHERE NOT EXISTS (

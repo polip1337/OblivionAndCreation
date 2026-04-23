@@ -585,6 +585,8 @@
       let lastInventoryRenderSignature = "";
       let lineageModalHistory = [];
       let lineageModalCurrent = null;
+      let forgeIdleTween = null;
+      let sharedAudioCtx = null;
 
       function makeId() {
         if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -2095,7 +2097,7 @@
             if (el) el.classList.add("discovery-pulse");
           }, 20);
         }
-        return true;
+        return instance.id;
       }
       function heavenCooldownReductionPercent() {
         const heavenCount = harmonyCounts().Heaven;
@@ -2308,7 +2310,7 @@
         removeInventoryId(instA.id);
         removeInventoryId(instB.id);
         if (!state.canonicalDaos[resultDef.name]) state.canonicalDaos[resultDef.name] = resultDef;
-        addInstance(resultDef.name, true, "forge");
+        const forgedInstanceId = addInstance(resultDef.name, true, "forge");
         const pathKinds = daoPathLabels(resultDef);
         if (pathKinds.includes("Creation")) state.questStats.highDaoCreationDiscoveries = Number(state.questStats.highDaoCreationDiscoveries || 0) + 1;
         if (pathKinds.includes("Oblivion")) state.questStats.highDaoOblivionDiscoveries = Number(state.questStats.highDaoOblivionDiscoveries || 0) + 1;
@@ -2321,11 +2323,11 @@
         const newlyUnlockedSeeds = unlockSeedsByConditions();
         if (newlyUnlockedSeeds.length) showToast(`New seeds unlocked: ${newlyUnlockedSeeds.join(", ")}.`, "success");
         ensureRankUp();
-        triggerForgeVisuals(resonance, resultDef?.affinity);
-        playForgeSound();
         saveState();
         checkTutorialAdvancement();
         rerenderUI();
+        triggerForgeVisuals(resonance, resultDef?.affinity, forgedInstanceId);
+        playForgeSound(resonance, resultDef?.affinity);
         if (shouldShowParadoxIntro) showParadoxIntroModal();
         forgeBusy = false; setForgeBusy(false);
       }
@@ -3191,6 +3193,7 @@
           reasonEl.textContent = "Select two Daos";
           if (knownEl) knownEl.textContent = "";
         }
+        refreshForgeButtonIdlePulse();
       }
       function renderRecentFeed() {
         const feed = document.getElementById("recentFeed");
@@ -3550,7 +3553,11 @@
         setTimeout(() => { el.style.opacity = "0"; }, 3500);
         setTimeout(() => { el.remove(); }, 4200);
       }
-      function setForgeBusy(active) { document.getElementById("forgeSpinner").classList.toggle("show", active); }
+      function setForgeBusy(active) {
+        const spinner = document.getElementById("forgeSpinner");
+        if (spinner) spinner.classList.toggle("show", active);
+        refreshForgeButtonIdlePulse();
+      }
       function shakeForge() {
         const panel = document.getElementById("forge-panel");
         panel.classList.add("shake");
@@ -4436,29 +4443,56 @@
         }
       }
 
-      function audioCtx() { try { return new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
-      function tone(ctx, freq, duration, type, gainVal, when) {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.type = type || "sine"; osc.frequency.value = freq; gain.gain.value = gainVal || 0.04;
-        osc.connect(gain); gain.connect(ctx.destination); osc.start(when); osc.stop(when + duration);
+      function audioCtx() {
+        try {
+          if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+            sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (sharedAudioCtx.state === "suspended") void sharedAudioCtx.resume();
+          return sharedAudioCtx;
+        } catch {
+          return null;
+        }
       }
-      function playForgeSound() {
+      function tone(ctx, freq, duration, type, gainVal, when) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type || "sine";
+        osc.frequency.value = freq;
+        const start = when;
+        const peak = Math.max(0.001, Number(gainVal) || 0.04);
+        const end = start + duration;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(peak, start + Math.min(0.02, duration * 0.2));
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(end);
+      }
+      function playForgeSound(resonance, affinity) {
         const ctx = audioCtx(); if (!ctx) return;
         const t = ctx.currentTime + 0.01;
-        [220, 277, 330].forEach((f, i) => tone(ctx, f, 0.22, "sine", 0.045, t + i * 0.06));
-        setTimeout(() => ctx.close(), 600);
+        const profile = resonance === "Chaos Surge"
+          ? { freqs: [165, 247, 196], type: "sawtooth", gain: 0.03 }
+          : resonance === "Discord"
+            ? { freqs: [196, 262, 220], type: "triangle", gain: 0.032 }
+            : resonance === "Resonance"
+              ? { freqs: [220, 330, 440], type: "sine", gain: 0.04 }
+              : { freqs: [196, 294, 392], type: "sine", gain: 0.034 };
+        profile.freqs.forEach((f, i) => tone(ctx, f, 0.16 + (i * 0.03), profile.type, profile.gain, t + i * 0.045));
+        const color = affinity === "Paradox" ? 146 : affinity === "Yin" ? 110 : affinity === "Yang" ? 174 : 130;
+        tone(ctx, color * 2, 0.09, "triangle", 0.02, t + 0.11);
       }
       function playCollapseSound() {
         const ctx = audioCtx(); if (!ctx) return;
         const t = ctx.currentTime + 0.01;
         [240, 190, 150].forEach((f, i) => tone(ctx, f, 0.22, "triangle", 0.035, t + i * 0.08));
-        setTimeout(() => ctx.close(), 700);
       }
       function playWinSound() {
         const ctx = audioCtx(); if (!ctx) return;
         const t = ctx.currentTime + 0.01;
         [196, 247, 294, 392].forEach((f, i) => tone(ctx, f, 1.4, "sine", 0.03, t + i * 0.05));
-        setTimeout(() => ctx.close(), 2200);
       }
       function pulseBagua(ms) {
         const el = document.getElementById("baguaHeader");
@@ -4481,11 +4515,12 @@
         }
         setTimeout(() => { partRoot.innerHTML = ""; }, 1500);
       }
-      function triggerForgeVisuals(resonance, affinity) {
+      function triggerForgeVisuals(resonance, affinity, forgedInstanceId) {
         const panel = document.getElementById("forge-panel");
         const slotsWrap = panel ? panel.querySelector(".forge-slots") : null;
         const slotA = document.getElementById("slotA");
         const slotB = document.getElementById("slotB");
+        const forgeBtn = document.getElementById("forgeBtn");
         if (panel) {
           panel.classList.remove("forge-ritual-active");
           void panel.offsetWidth;
@@ -4505,6 +4540,52 @@
           slot.classList.add("slot-forge-pulse");
           setTimeout(() => slot.classList.remove("slot-forge-pulse"), 520);
         });
+        if (window.gsap) {
+          const snap = 9;
+          if (forgeBtn) {
+            gsap.killTweensOf(forgeBtn);
+            gsap.timeline()
+              .to(forgeBtn, { scale: 0.92, duration: 0.06, ease: "power2.out" })
+              .to(forgeBtn, { scale: 1.08, duration: 0.14, ease: "back.out(2.8)" })
+              .to(forgeBtn, { scale: 1, duration: 0.12, ease: "power2.out" });
+          }
+          if (slotA) {
+            gsap.killTweensOf(slotA);
+            gsap.fromTo(slotA, { x: 0 }, { x: -snap, duration: 0.08, yoyo: true, repeat: 1, ease: "power2.inOut" });
+          }
+          if (slotB) {
+            gsap.killTweensOf(slotB);
+            gsap.fromTo(slotB, { x: 0 }, { x: snap, duration: 0.08, yoyo: true, repeat: 1, ease: "power2.inOut" });
+          }
+          if (panel) {
+            const target = slotsWrap || panel;
+            const targetRect = target.getBoundingClientRect();
+            const panelRect = panel.getBoundingClientRect();
+            const ring = document.createElement("div");
+            ring.className = "forge-rune-pop";
+            ring.style.left = `${(targetRect.left + (targetRect.width / 2)) - panelRect.left}px`;
+            ring.style.top = `${(targetRect.top + (targetRect.height / 2)) - panelRect.top}px`;
+            ring.style.borderColor = resonance === "Chaos Surge" ? "#b896ff" : (resonance === "Discord" ? "#ba9cff" : "#f4d79a");
+            ring.style.boxShadow = `0 0 18px ${resonance === "Chaos Surge" ? "rgba(184,150,255,.65)" : "rgba(244,215,154,.55)"}`;
+            panel.appendChild(ring);
+            gsap.fromTo(ring, { scale: 0.25, opacity: 0.88 }, {
+              scale: 1.95,
+              opacity: 0,
+              duration: 0.44,
+              ease: "power2.out",
+              onComplete: () => ring.remove()
+            });
+          }
+          if (forgedInstanceId) {
+            setTimeout(() => {
+              const card = document.querySelector(`[data-card-id="${forgedInstanceId}"]`);
+              if (!card) return;
+              card.classList.add("inventory-forge-pop");
+              gsap.fromTo(card, { y: 6, scale: 0.985 }, { y: 0, scale: 1.02, duration: 0.18, yoyo: true, repeat: 1, ease: "sine.inOut" });
+              setTimeout(() => card.classList.remove("inventory-forge-pop"), 520);
+            }, 35);
+          }
+        }
         const partRoot = document.getElementById("particles");
         if (!partRoot) return;
         const target = slotsWrap || panel || document.body;
@@ -4583,6 +4664,25 @@
           partRoot.appendChild(p);
         }
         setTimeout(() => { partRoot.innerHTML = ""; }, 720);
+      }
+      function refreshForgeButtonIdlePulse() {
+        if (forgeIdleTween) {
+          forgeIdleTween.kill();
+          forgeIdleTween = null;
+        }
+        const forgeBtn = document.getElementById("forgeBtn");
+        if (!forgeBtn) return;
+        if (!window.gsap || forgeBusy || forgeBtn.disabled || forgeBtn.offsetParent === null) {
+          forgeBtn.style.transform = "";
+          return;
+        }
+        forgeIdleTween = gsap.to(forgeBtn, {
+          scale: 1.02,
+          duration: 0.9,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut"
+        });
       }
 
       function runOpeningSequence() {

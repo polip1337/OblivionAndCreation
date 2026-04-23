@@ -828,6 +828,16 @@
   }
   
   .forge-mid .forge-btn { width: 100%; min-height: 42px; }
+.forge-rune-pop {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(244, 215, 154, 0.85);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
   
   .forge-actions {
     display: flex;
@@ -1579,6 +1589,9 @@
   .hidden { display: none !important; }
   .mobile-only { display: none; }
   .discovery-pulse { animation: pulseNew 1.2s ease; }
+.inventory-forge-pop {
+  box-shadow: 0 0 0 1px rgba(244, 215, 154, 0.55), 0 0 16px rgba(244, 215, 154, 0.45);
+}
   .shake { animation: shake 380ms linear; }
   .panel-reveal { animation: panel-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .btn-primary { background: linear-gradient(120deg, #3b2f59, #6f4f3c); border-color: #8f7eb8; padding: 9px 14px; border-radius: 2px; color: #ece5ff; cursor: pointer; }

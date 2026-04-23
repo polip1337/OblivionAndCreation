@@ -910,18 +910,8 @@ async function ensureTables() {
       result_name TEXT NOT NULL,
       dao_a TEXT NOT NULL,
       dao_b TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      FOREIGN KEY (result_name) REFERENCES forge_results(result_name) ON DELETE CASCADE
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
-  `);
-  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_result_pairs_result_name ON forge_result_pairs(result_name)");
-  await pool.query(`
-    INSERT INTO forge_result_pairs (pair_key, result_name, dao_a, dao_b)
-    SELECT fr.pair_key, fr.result_name, fr.dao_a, fr.dao_b
-      FROM forge_results fr
-     WHERE fr.pair_key IS NOT NULL
-       AND fr.result_name IS NOT NULL
-    ON CONFLICT (pair_key) DO NOTHING
   `);
   await pool.query(`
     DELETE FROM forge_results fr
@@ -935,6 +925,38 @@ async function ensureTables() {
        AND d.rn > 1
   `);
   await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_forge_results_result_name_unique ON forge_results(result_name)");
+  await pool.query("CREATE INDEX IF NOT EXISTS idx_forge_result_pairs_result_name ON forge_result_pairs(result_name)");
+  await pool.query(`
+    INSERT INTO forge_result_pairs (pair_key, result_name, dao_a, dao_b)
+    SELECT fr.pair_key, fr.result_name, fr.dao_a, fr.dao_b
+      FROM forge_results fr
+     WHERE fr.pair_key IS NOT NULL
+       AND fr.result_name IS NOT NULL
+    ON CONFLICT (pair_key) DO NOTHING
+  `);
+  await pool.query(`
+    DELETE FROM forge_result_pairs fp
+     WHERE NOT EXISTS (
+       SELECT 1
+         FROM forge_results fr
+        WHERE fr.result_name = fp.result_name
+     )
+  `);
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+          FROM pg_constraint
+         WHERE conname = 'forge_result_pairs_result_name_fkey'
+      ) THEN
+        ALTER TABLE forge_result_pairs
+        ADD CONSTRAINT forge_result_pairs_result_name_fkey
+        FOREIGN KEY (result_name) REFERENCES forge_results(result_name) ON DELETE CASCADE;
+      END IF;
+    END
+    $$;
+  `);
   await pool.query("ALTER TABLE forge_results DROP COLUMN IF EXISTS pair_key");
   await pool.query("ALTER TABLE forge_results DROP COLUMN IF EXISTS tier");
 

@@ -776,6 +776,11 @@
   .forge-slots.forge-impact::after {
     animation: forgeImpact 460ms ease-out;
   }
+#forge-panel.forge-waiting .forge-slots::after {
+  opacity: 0.55;
+  transform: scale(0.9);
+  background: radial-gradient(circle, color-mix(in srgb, var(--forge-wait-color, #f4d79a) 55%, transparent) 0%, rgba(245,220,154,0.08) 48%, rgba(245,220,154,0) 78%);
+}
   
   .slot {
     min-height: 120px;
@@ -837,6 +842,18 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
   z-index: 3;
+}
+.forge-creation-sigil {
+  position: fixed;
+  width: clamp(220px, 36vw, 460px);
+  max-width: 92%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
+  filter: drop-shadow(0 0 18px rgba(244, 215, 154, 0.78)) saturate(1.08);
+  z-index: 320;
+  mix-blend-mode: normal;
+  will-change: transform, opacity;
 }
   
   .forge-actions {

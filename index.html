@@ -86,14 +86,13 @@
           <div class="forge-slots">
             <div class="slot" id="slotA"></div>
             <div class="forge-mid">
+              <span id="forgeSpinner" class="spinner"></span>
               <button id="forgeBtn" class="forge-btn">Combine Daos</button>
               <span class="resonance-pill res-neutral" id="resonance-indicator">Neutral</span>
             </div>
             <div class="slot" id="slotB"></div>
           </div>
-          <div class="forge-actions">
-            <span id="forgeSpinner" class="spinner"></span>
-          </div>
+          <div class="forge-actions"></div>
           <div class="tooltip" id="knownForgeResult" style="margin-bottom:8px;"></div>
           <div class="feed" id="recentFeed"></div>
           <div id="t1ManifestAreaForge" class="manifest-area">
@@ -586,7 +585,9 @@
       let lineageModalHistory = [];
       let lineageModalCurrent = null;
       let forgeIdleTween = null;
+      let forgeWaitTween = null;
       let sharedAudioCtx = null;
+      const FORGE_CREATION_SIGIL_SRC = "./Creatuib/creation.png";
 
       function makeId() {
         if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -2243,6 +2244,7 @@
         pulseBagua(3500);
         const key = pairKey(daoA.name, daoB.name);
         const resonance = resonanceScore(daoA, daoB);
+        startForgeWaitVisuals(resonance);
         const targetTier = validation.resultTier;
         let shouldShowParadoxIntro = false;
         let resultDef;
@@ -2290,6 +2292,7 @@
             }
           }
         } catch (err) {
+          stopForgeWaitVisuals();
           console.error(err);
           if (err.code === 429) showToast("The oracle is constrained by heaven. Retry shortly.", "warning");
           else if (err.code === 401) showToast("The server rejected generation for your session. Retry shortly.", "warning");
@@ -2326,6 +2329,7 @@
         saveState();
         checkTutorialAdvancement();
         rerenderUI();
+        stopForgeWaitVisuals();
         triggerForgeVisuals(resonance, resultDef?.affinity, forgedInstanceId);
         playForgeSound(resonance, resultDef?.affinity);
         if (shouldShowParadoxIntro) showParadoxIntroModal();
@@ -3127,14 +3131,13 @@
               <div class="forge-slots">
                 <div class="slot" id="slotA"></div>
                 <div class="forge-mid">
+                  <span id="forgeSpinner" class="spinner"></span>
                   <button id="forgeBtn" class="forge-btn">Combine Daos</button>
                   <span class="resonance-pill res-neutral" id="resonance-indicator">Neutral</span>
                 </div>
                 <div class="slot" id="slotB"></div>
               </div>
-              <div class="forge-actions">
-                <span id="forgeSpinner" class="spinner"></span>
-              </div>
+              <div class="forge-actions"></div>
               <div class="tooltip" id="knownForgeResult" style="margin-bottom:8px;"></div>
               <div class="feed" id="recentFeed"></div>
               <div id="t1ManifestAreaForge" class="manifest-area">
@@ -4575,6 +4578,50 @@
               ease: "power2.out",
               onComplete: () => ring.remove()
             });
+            const sigil = document.createElement("img");
+            sigil.className = "forge-creation-sigil";
+            sigil.src = FORGE_CREATION_SIGIL_SRC;
+            sigil.alt = "";
+            sigil.style.left = "50vw";
+            sigil.style.top = "50vh";
+            sigil.onerror = () => sigil.remove();
+            document.body.appendChild(sigil);
+            gsap.timeline({
+              onComplete: () => sigil.remove()
+            })
+              .fromTo(sigil, {
+                xPercent: -50,
+                yPercent: -50,
+                scale: 0.34,
+                opacity: 0,
+                rotation: -5
+              }, {
+                xPercent: -50,
+                yPercent: -50,
+                scale: 1.08,
+                opacity: 1,
+                rotation: 0,
+                duration: 0.18,
+                ease: "power2.out"
+              })
+              // Hold to make the sigil readable and impactful.
+              .to(sigil, {
+                xPercent: -50,
+                yPercent: -50,
+                scale: 1.12,
+                opacity: 1,
+                duration: 0.84,
+                ease: "none"
+              })
+              .to(sigil, {
+                xPercent: -50,
+                yPercent: -50,
+                scale: 1.24,
+                opacity: 0,
+                rotation: 5,
+                duration: 1.02,
+                ease: "sine.out"
+              });
           }
           if (forgedInstanceId) {
             setTimeout(() => {
@@ -4683,6 +4730,52 @@
           yoyo: true,
           ease: "sine.inOut"
         });
+      }
+      function startForgeWaitVisuals(resonance) {
+        if (!window.gsap) return;
+        stopForgeWaitVisuals();
+        const panel = document.getElementById("forge-panel");
+        const slotsWrap = panel ? panel.querySelector(".forge-slots") : null;
+        const slotA = document.getElementById("slotA");
+        const slotB = document.getElementById("slotB");
+        const forgeBtn = document.getElementById("forgeBtn");
+        const runeColor = resonance === "Chaos Surge" ? "#b896ff" : (resonance === "Discord" ? "#bda2ff" : "#f4d79a");
+        if (panel) panel.classList.add("forge-waiting");
+        if (slotsWrap) slotsWrap.style.setProperty("--forge-wait-color", runeColor);
+        forgeWaitTween = gsap.timeline({ repeat: -1, defaults: { ease: "sine.inOut" } });
+        if (forgeBtn) {
+          forgeWaitTween.to(forgeBtn, { scale: 1.03, duration: 0.35 }, 0);
+          forgeWaitTween.to(forgeBtn, { scale: 0.98, duration: 0.35 }, 0.35);
+        }
+        if (slotsWrap) {
+          forgeWaitTween.to(slotsWrap, { boxShadow: "0 0 0 1px rgba(244,215,154,.55), inset 0 0 20px rgba(244,215,154,.2)", duration: 0.35 }, 0);
+          forgeWaitTween.to(slotsWrap, { boxShadow: "0 0 0 1px rgba(122,92,42,.25), inset 0 0 0 rgba(0,0,0,0)", duration: 0.35 }, 0.35);
+        }
+        if (slotA && slotB) {
+          forgeWaitTween.to(slotA, { x: -4, duration: 0.35 }, 0);
+          forgeWaitTween.to(slotB, { x: 4, duration: 0.35 }, 0);
+          forgeWaitTween.to(slotA, { x: 0, duration: 0.35 }, 0.35);
+          forgeWaitTween.to(slotB, { x: 0, duration: 0.35 }, 0.35);
+        }
+      }
+      function stopForgeWaitVisuals() {
+        const panel = document.getElementById("forge-panel");
+        const slotsWrap = panel ? panel.querySelector(".forge-slots") : null;
+        const slotA = document.getElementById("slotA");
+        const slotB = document.getElementById("slotB");
+        const forgeBtn = document.getElementById("forgeBtn");
+        if (forgeWaitTween) {
+          forgeWaitTween.kill();
+          forgeWaitTween = null;
+        }
+        if (panel) panel.classList.remove("forge-waiting");
+        if (slotsWrap) {
+          slotsWrap.style.boxShadow = "";
+          slotsWrap.style.removeProperty("--forge-wait-color");
+        }
+        if (forgeBtn) forgeBtn.style.transform = "";
+        if (slotA) slotA.style.transform = "";
+        if (slotB) slotB.style.transform = "";
       }
 
       function runOpeningSequence() {

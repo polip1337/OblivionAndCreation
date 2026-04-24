@@ -97,8 +97,12 @@
           <div class="feed" id="recentFeed"></div>
           <div id="t1ManifestAreaForge" class="manifest-area">
             <div class="manifest-actions">
-              <button id="seedManifestBtnForge" class="hint-btn">Manifest Random Dao</button>
+              <button id="seedManifestBtnForge" class="hint-btn manifest-primary-btn">Manifest Random Dao</button>
               <button id="manifestPoolHelpBtn" class="hint-btn" title="Show random manifest pool" aria-label="Show random manifest pool">?</button>
+            </div>
+            <div id="seedManifestCdTextForge" class="manifest-cooldown-label tooltip"></div>
+            <div class="seed-cooldown-track manifest-cooldown-track">
+              <div id="seedManifestCdFillForge" class="seed-cooldown-fill"></div>
             </div>
           </div>
         </div>
@@ -208,18 +212,6 @@
           condition: (s) => !!s.tutorialActions?.openedLibraryTab
         },
         {
-          id: "discover_t2",
-          objective: "Discover a Tier 2 Dao",
-          hint: "Combine discovered paths until you reach Tier 2. This unlocks deeper cultivation systems.",
-          condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier === 2)
-        },
-        {
-          id: "open_info",
-          objective: "Read a Tier 2+ Dao in Info",
-          hint: "Click a Tier 2+ Dao card to inspect ancestry, echoes, and path identity in the Info panel.",
-          condition: (s) => !!s.tutorialActions?.openedInfoPanel && Object.values(s.canonicalDaos).some((d) => d.tier >= 2)
-        },
-        {
           id: "open_cultivation",
           objective: "Open the Cultivation tab",
           hint: "Cultivation hosts Active Daos and Harmony bars. This is where long-term passive power is managed.",
@@ -234,7 +226,7 @@
         {
           id: "three_harmony",
           objective: "Hold Heaven, Earth, and Human together",
-          hint: "Fill all three Harmony bars: Heaven shortens manifestation cooldown, Earth slows Paradox decay, Human grants bonus manifestations.",
+          hint: "You can keep forging in Forge to create the new Daos. Have all three Harmony types: Heaven shortens manifestation cooldown, Earth slows Paradox decay, Human grants bonus manifestations.",
           condition: (s) => {
             const classes = new Set(s.inventory.map((i) => s.canonicalDaos[i.definitionName]?.harmonyClass).filter(Boolean));
             return classes.has("Heaven") && classes.has("Earth") && classes.has("Human");
@@ -249,20 +241,8 @@
         {
           id: "open_mastery",
           objective: "Open the Inner Arts tab",
-          hint: "Inner Arts tracks Dao growth bands (10/50/100), targeted manifestation unlocks, and inventory bonuses.",
+          hint: "Inner Arts tracks Dao growth thresholds (10/50/100), targeted manifestation unlocks, and inventory bonuses.",
           condition: (s) => !!s.tutorialActions?.openedMasteryTab
-        },
-        {
-          id: "reach_t3",
-          objective: "Forge a Tier 3 Dao",
-          hint: "Tier 3 introduces stronger synthesis and resonance pressure in advanced forging.",
-          condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 3)
-        },
-        {
-          id: "reach_t4",
-          objective: "Forge a Tier 4 Dao",
-          hint: "Tier 4 opens Seeds, where dormant Base Dao progression becomes visible.",
-          condition: (s) => Object.values(s.canonicalDaos).some((d) => d.tier >= 4)
         },
         {
           id: "open_seeds",
@@ -275,6 +255,12 @@
           objective: "Open the Masters tab",
           hint: "Masters introduce quest chains. Complete objectives, then claim rewards to unlock further progression.",
           condition: (s) => !!s.tutorialActions?.openedMastersTab
+        },
+        {
+          id: "claim_quest_reward",
+          objective: "Claim a quest reward",
+          hint: "In Masters, claim any quest marked Ready to collect its reward and complete your first quest cycle.",
+          condition: (s) => !!s.tutorialActions?.claimedQuestReward
         }
       ];
       const TUTORIAL_STEP_INDEX = TUTORIAL_STEPS.reduce((acc, step, idx) => {
@@ -335,9 +321,13 @@
         librarySearch: "",
         daoMasteryCounts: {},
         randomManifestExcludedNames: [],
-        masteryCollapsedTiers: {},
-        masteryCollapsedDaos: {},
-        masteryFoldAll: true,
+        hiddenInnerArtsDaoNames: [],
+        showHiddenInnerArts: false,
+        innerArtsFilters: {
+          affinity: "all",
+          harmony: "all",
+          manifest: "all"
+        },
         developerNoSummonCooldown: false,
         paradoxIntroShown: false,
         highDaoIntroSeen: { creation: false, oblivion: false },
@@ -712,14 +702,7 @@
       }
 
       function activeSlotUnlocked(slotIndex) {
-        const maxTier = maxDiscoveredTier();
-        const realmData = cpRealmLevelData(cpRealmLevel());
-        // Active Dao system awakens at Tier 2.
-        if (maxTier < 2) return false;
-        if (slotIndex === 0) return true; // Slot 1 (unlocks at T2)
-        if (slotIndex === 1) return maxTier >= 3 || !!realmData.earlyActiveSlot2;
-        if (slotIndex === 2) return maxTier >= 6 || !!realmData.earlyActiveSlot3;
-        return false;
+        return slotIndex >= 0 && slotIndex < 3;
       }
       function cpRealmLevel() {
         const earned = Math.max(0, Math.floor(Number(state.totalCpEarned) || 0));
@@ -1135,13 +1118,8 @@
         }
 
         document.getElementById("tutorialObjective").textContent = step.objective;
-        if (step.id === "three_harmony") {
-          document.getElementById("tutorialHint").textContent = currentTutorialFlavorHint();
-          startTutorialFlavorRotation();
-        } else {
-          stopTutorialFlavorRotation();
-          document.getElementById("tutorialHint").textContent = step.hint;
-        }
+        stopTutorialFlavorRotation();
+        document.getElementById("tutorialHint").textContent = step.hint;
         const circle = document.getElementById("tutorialStepCircle");
         circle.textContent = stepNumber;
         circle.classList.add("active");
@@ -1159,10 +1137,6 @@
             return "#forgeBtn";
           case "open_library":
             return "#middleLibraryTabBtn";
-          case "discover_t2":
-            return "#forge-panel";
-          case "open_info":
-            return "#info-panel";
           case "open_cultivation":
             return "#middleCultivationTabBtn";
           case "open_mastery":
@@ -1173,13 +1147,12 @@
             return "#three-harmonies";
           case "earn_cp":
             return "#cpRealmBar";
-          case "reach_t3":
-          case "reach_t4":
-            return "#forge-panel .panel-header";
           case "open_seeds":
             return "#middleSeedsTabBtn";
           case "open_masters":
             return "#middleMastersTabBtn";
+          case "claim_quest_reward":
+            return "button[data-claim-quest]";
           default:
             return "";
         }
@@ -1188,14 +1161,6 @@
         document.querySelectorAll(".tutorial-focus").forEach((el) => el.classList.remove("tutorial-focus"));
       }
       function applyTutorialHighlight(stepId) {
-        if (["select_two", "forge_first", "open_library", "discover_t2", "reach_t3", "reach_t4", "open_mastery", "open_seeds", "open_masters"].includes(stepId)) {
-          state.middlePanelTab = "forge";
-          renderSlotsAndForge();
-        }
-        if (["open_cultivation", "three_harmony"].includes(stepId)) {
-          state.middlePanelTab = "cultivation";
-          renderSlotsAndForge();
-        }
         clearTutorialHighlights();
         const selector = tutorialHighlightTarget(stepId);
         if (!selector) return;
@@ -1285,7 +1250,8 @@
         const summary = document.getElementById("activeBonusSummary");
         if (!grid || !summary) return;
 
-        const unlockedOverall = maxDiscoveredTier() >= 2;
+        const hasAnyActive = Array.isArray(state.activeDaos) && state.activeDaos.some(Boolean);
+        const unlockedOverall = tutorialReached("open_cultivation") || hasAnyActive;
         if (area) area.classList.toggle("hidden", !unlockedOverall);
         if (!unlockedOverall) {
           grid.innerHTML = "";
@@ -1391,6 +1357,62 @@
         }));
         return fresh;
       }
+      function removeNumberedDaoNamesFromState(rawState) {
+        const s = rawState && typeof rawState === "object" ? rawState : {};
+        const hasDigit = (name) => /\d/.test(String(name || ""));
+        const canonical = (s.canonicalDaos && typeof s.canonicalDaos === "object") ? { ...s.canonicalDaos } : {};
+        const removedNames = new Set(Object.keys(canonical).filter((name) => hasDigit(name)));
+        removedNames.forEach((name) => delete canonical[name]);
+        s.canonicalDaos = canonical;
+
+        const hasCanonicalName = (name) => {
+          const key = String(name || "");
+          return !!key && !removedNames.has(key) && !!canonical[key];
+        };
+
+        if (s.discoveredCombinations && typeof s.discoveredCombinations === "object") {
+          const cleanedDiscoveries = {};
+          Object.entries(s.discoveredCombinations).forEach(([pair, def]) => {
+            if (hasCanonicalName(def?.name)) cleanedDiscoveries[pair] = def;
+          });
+          s.discoveredCombinations = cleanedDiscoveries;
+        } else {
+          s.discoveredCombinations = {};
+        }
+
+        s.inventory = Array.isArray(s.inventory)
+          ? s.inventory.filter((inst) => hasCanonicalName(inst?.definitionName))
+          : [];
+
+        s.activeDaos = Array.isArray(s.activeDaos)
+          ? s.activeDaos.map((slot) => (slot && hasCanonicalName(slot?.name) ? slot : null))
+          : [null, null, null];
+
+        s.decayedDaos = Array.isArray(s.decayedDaos)
+          ? s.decayedDaos.filter((name) => hasCanonicalName(name))
+          : [];
+
+        if (s.daoMasteryCounts && typeof s.daoMasteryCounts === "object") {
+          s.daoMasteryCounts = Object.entries(s.daoMasteryCounts).reduce((acc, [name, count]) => {
+            if (hasCanonicalName(name)) acc[name] = count;
+            return acc;
+          }, {});
+        } else {
+          s.daoMasteryCounts = {};
+        }
+
+        s.hiddenInnerArtsDaoNames = Array.isArray(s.hiddenInnerArtsDaoNames)
+          ? s.hiddenInnerArtsDaoNames.filter((name) => hasCanonicalName(name))
+          : [];
+
+        s.randomManifestExcludedNames = Array.isArray(s.randomManifestExcludedNames)
+          ? s.randomManifestExcludedNames.filter((name) => hasCanonicalName(name))
+          : [];
+
+        s.discoveryLog = Array.isArray(s.discoveryLog)
+          ? s.discoveryLog.filter((entry) => !hasDigit(entry?.result))
+          : [];
+      }
 
       function loadState() {
         try {
@@ -1434,9 +1456,6 @@
           }
           if (parsed.version === 7) {
             parsed.version = 8;
-            if (!parsed.masteryCollapsedTiers || typeof parsed.masteryCollapsedTiers !== "object") parsed.masteryCollapsedTiers = {};
-            if (!parsed.masteryCollapsedDaos || typeof parsed.masteryCollapsedDaos !== "object") parsed.masteryCollapsedDaos = {};
-            if (typeof parsed.masteryFoldAll !== "boolean") parsed.masteryFoldAll = true;
           }
           if (parsed.version === 8) {
             parsed.version = 9;
@@ -1475,6 +1494,7 @@
               openedMasteryTab: (Number(parsed.tutorialStage) || 0) >= tutorialStepIndex("open_mastery"),
               openedSeedsTab: (Number(parsed.tutorialStage) || 0) >= tutorialStepIndex("open_seeds"),
               openedMastersTab: (Number(parsed.tutorialStage) || 0) >= tutorialStepIndex("open_masters"),
+              claimedQuestReward: (Number(parsed.tutorialStage) || 0) >= tutorialStepIndex("claim_quest_reward"),
               replacedActiveDao: false,
               activatedFirstDao: Array.isArray(parsed.activeDaos) ? parsed.activeDaos.some(Boolean) : false
             };
@@ -1493,6 +1513,9 @@
           }
           if (typeof parsed.tutorialActions.openedMastersTab !== "boolean") {
             parsed.tutorialActions.openedMastersTab = false;
+          }
+          if (typeof parsed.tutorialActions.claimedQuestReward !== "boolean") {
+            parsed.tutorialActions.claimedQuestReward = false;
           }
           if (typeof parsed.tutorialActions.activatedFirstDao !== "boolean") {
             parsed.tutorialActions.activatedFirstDao = (parsed.activeDaos || []).some(Boolean);
@@ -1525,9 +1548,14 @@
             return acc;
           }, {});
           if (!Array.isArray(parsed.randomManifestExcludedNames)) parsed.randomManifestExcludedNames = [];
-          if (!parsed.masteryCollapsedTiers || typeof parsed.masteryCollapsedTiers !== "object") parsed.masteryCollapsedTiers = {};
-          if (!parsed.masteryCollapsedDaos || typeof parsed.masteryCollapsedDaos !== "object") parsed.masteryCollapsedDaos = {};
-          if (typeof parsed.masteryFoldAll !== "boolean") parsed.masteryFoldAll = true;
+          if (!Array.isArray(parsed.hiddenInnerArtsDaoNames)) parsed.hiddenInnerArtsDaoNames = [];
+          if (typeof parsed.showHiddenInnerArts !== "boolean") parsed.showHiddenInnerArts = false;
+          if (!parsed.innerArtsFilters || typeof parsed.innerArtsFilters !== "object") parsed.innerArtsFilters = { affinity: "all", harmony: "all", manifest: "all" };
+          parsed.innerArtsFilters = {
+            affinity: typeof parsed.innerArtsFilters.affinity === "string" ? parsed.innerArtsFilters.affinity : "all",
+            harmony: typeof parsed.innerArtsFilters.harmony === "string" ? parsed.innerArtsFilters.harmony : "all",
+            manifest: typeof parsed.innerArtsFilters.manifest === "string" ? parsed.innerArtsFilters.manifest : "all"
+          };
           if (typeof parsed.developerNoSummonCooldown !== "boolean") parsed.developerNoSummonCooldown = false;
           if (typeof parsed.paradoxIntroShown !== "boolean") parsed.paradoxIntroShown = false;
           if (!parsed.highDaoIntroSeen || typeof parsed.highDaoIntroSeen !== "object") parsed.highDaoIntroSeen = { creation: false, oblivion: false };
@@ -1552,6 +1580,7 @@
           if (!parsed.tutorialSeen || typeof parsed.tutorialSeen !== "object") parsed.tutorialSeen = {};
           if (parsed.activeFilter === "t3plus") parsed.activeFilter = "t3";
           if (typeof parsed.tutorialDismissed !== "boolean") parsed.tutorialDismissed = false;
+          removeNumberedDaoNamesFromState(parsed);
           return { ...clone(BASE_STATE), ...parsed };
         } catch (err) {
           console.warn(err);
@@ -1617,7 +1646,6 @@
 
       function normalizeResult(raw, targetTier, daoA, daoB) {
         const safe = {};
-        const existing = new Set(Object.keys(state.canonicalDaos));
         const allowedAff = ["Yin", "Yang", "Neutral", "Paradox"];
         const allowedHar = ["Heaven", "Earth", "Human"];
         safe.tier = targetTier;
@@ -1627,7 +1655,6 @@
         let candidate = String(raw.name || "").trim();
         if (!candidate) candidate = `${daoA.name.split(" ")[0]}-${daoB.name.split(" ")[0]}`;
         candidate = simplifyGeneratedDaoName(candidate, targetTier);
-        if (targetTier < 7 && existing.has(candidate)) candidate = candidate + " " + Math.floor(100 + Math.random() * 900);
         safe.name = candidate;
         safe.isUnstable = safe.affinity === "Paradox";
         const rr = Number(raw.decayRate) || 0;
@@ -1823,7 +1850,7 @@
         const value = Number(req?.value || 0);
         switch (req?.type) {
           case "total_cp_earned": return progress.totalCpEarned >= value;
-          case "max_tier": return progress.maxTier >= value;
+          case "max_tier": return true;
           case "active_daos": return progress.activeDaos >= value;
           case "mastered_daos": return progress.masteredDaos >= value;
           case "total_discoveries": return progress.totalDiscoveries >= value;
@@ -1866,7 +1893,7 @@
         })();
         switch (req?.type) {
           case "total_cp_earned": return `Total CP earned: ${Math.floor(current)}/${value}`;
-          case "max_tier": return `Highest Dao tier: ${current}/${value}`;
+          case "max_tier": return "Highest Dao tier requirement disabled.";
           case "active_daos": return `Active Daos: ${current}/${value}`;
           case "mastered_daos": return `Mastered Daos: ${current}/${value}`;
           case "total_discoveries": return `Total discoveries: ${current}/${value}`;
@@ -1950,9 +1977,12 @@
         if (!quest || !quest.readyToClaim) return;
         completedSet.add(id);
         state.masters.completedQuestIds = Array.from(completedSet);
+        if (!state.tutorialActions || typeof state.tutorialActions !== "object") state.tutorialActions = {};
+        state.tutorialActions.claimedQuestReward = true;
         applyQuestReward(quest);
         showToast(`Quest completed: ${quest.title}`, "success");
         saveState();
+        checkTutorialAdvancement();
         rerenderUI();
       }
       function buildMastersProgressPayload() {
@@ -2131,10 +2161,10 @@
         };
       }
       function isCreationOblivionPair(daoA, daoB) {
-        const left = daoA.name === "Creation" && daoA.tier === 9 && daoA.affinity === "Yang";
-        const right = daoB.name === "Oblivion" && daoB.tier === 9 && daoB.affinity === "Yin";
-        const leftInv = daoB.name === "Creation" && daoB.tier === 9 && daoB.affinity === "Yang";
-        const rightInv = daoA.name === "Oblivion" && daoA.tier === 9 && daoA.affinity === "Yin";
+        const left = daoA.name === "Creation" && daoA.affinity === "Yang";
+        const right = daoB.name === "Oblivion" && daoB.affinity === "Yin";
+        const leftInv = daoB.name === "Creation" && daoB.affinity === "Yang";
+        const rightInv = daoA.name === "Oblivion" && daoA.affinity === "Yin";
         return (left && right) || (leftInv && rightInv);
       }
       function awardCp(amount, note) {
@@ -2190,7 +2220,7 @@
         let changed = false;
         while (state.playerRank < 9) {
           const target = state.playerRank + 1;
-          const has = state.inventory.some((inst) => getDef(inst).tier >= target);
+          const has = true;
           if (!has) break;
           if (target === 9 && !canAdvanceToRank9()) {
             showToast("To transcend to Rank 9, hold one advanced Yang Dao and one advanced Yin Dao.", "warning");
@@ -2203,10 +2233,10 @@
         return changed;
       }
       function canAdvanceToRank9() {
-        const t8Instances = state.inventory.filter((i) => { const d = state.canonicalDaos[i.definitionName]; return d && d.tier === 8; });
-        const hasYangT8 = t8Instances.some((i) => { const d = state.canonicalDaos[i.definitionName]; return d && d.affinity === "Yang"; });
-        const hasYinT8 = t8Instances.some((i) => { const d = state.canonicalDaos[i.definitionName]; return d && d.affinity === "Yin"; });
-        return hasYangT8 && hasYinT8;
+        const allInstances = state.inventory.filter((i) => state.canonicalDaos[i.definitionName]);
+        const hasYang = allInstances.some((i) => { const d = state.canonicalDaos[i.definitionName]; return d && d.affinity === "Yang"; });
+        const hasYin = allInstances.some((i) => { const d = state.canonicalDaos[i.definitionName]; return d && d.affinity === "Yin"; });
+        return hasYang && hasYin;
       }
       function checkGreatDivergence(resultDef) {
         if (state.greatDivergenceShown) return;
@@ -2272,6 +2302,10 @@
               oracle = { ...(await callOracle(daoA, daoB, targetTier)), voteEligibleName: false };
             }
             resultDef = { ...oracle, parentA: daoA.name, parentB: daoB.name, echoPassives: buildEchoes(daoA, daoB), isNameless: false, isReturnedSeed: false };
+            if (resultDef.name && state.canonicalDaos[resultDef.name]) {
+              // Name collision: reuse original canonical Dao unchanged.
+              resultDef = state.canonicalDaos[resultDef.name];
+            }
             state.discoveredCombinations[key] = resultDef;
             state.canonicalDaos[resultDef.name] = resultDef;
             const discoveryStacks = activatedEchoCountAny(seedNamesByHarmony("Human"));
@@ -2564,7 +2598,7 @@
             ? `<div class="high-dao-sigil high-dao-sigil-${highDaoPath}">HIGH DAO · ${highDaoPath === "creation" ? "Creation Path" : highDaoPath === "oblivion" ? "Oblivion Path" : "Dual Path"}</div>`
             : "";
           let polarityHtml = "";
-          if (tutorialReached("reach_t3") && def.tier >= 2) {
+          if (def.tier >= 2) {
             const score = polarityScore(def);
             const maxScore = 10;
             const clamped = Math.max(-maxScore, Math.min(maxScore, score));
@@ -2805,18 +2839,33 @@
       function inventoryCapacity() {
         return BASE_INVENTORY_SIZE + masteryBonusInventorySlots() + cpRealmInventoryBonus(cpRealmLevel());
       }
+      function resetInnerArtsFilters() {
+        state.innerArtsFilters = { affinity: "all", harmony: "all", manifest: "all" };
+      }
       function renderMasteryScreen(rootId) {
         const root = document.getElementById(rootId || "masteryList");
         if (!root) return;
+        const filters = state.innerArtsFilters || { affinity: "all", harmony: "all", manifest: "all" };
         const defs = Object.values(state.canonicalDaos || {})
           .filter((d) => d && d.name && typeof d.tier === "number")
           .filter((d) => getDaoMasteryCount(d.name) > 0)
+          .filter((d) => {
+            if (filters.affinity !== "all" && String(d.affinity) !== filters.affinity) return false;
+            if (filters.harmony !== "all" && String(d.harmonyClass) !== filters.harmony) return false;
+            const mastery = getDaoMasteryCount(d.name);
+            if (filters.manifest === "manifestable" && mastery < 50) return false;
+            if (filters.manifest === "peak" && mastery < 100) return false;
+            if (filters.manifest === "unmanifestable" && mastery >= 50) return false;
+            return true;
+          })
           .sort((a, b) => (b.tier - a.tier) || (getDaoMasteryCount(b.name) - getDaoMasteryCount(a.name)) || a.name.localeCompare(b.name));
         if (!defs.length) {
           root.innerHTML = `<div class="tooltip">No mastered Daos yet. Forge or manifest a Dao to begin mastery tracking.</div>`;
           return;
         }
         const exclusions = new Set(state.randomManifestExcludedNames || []);
+        const hiddenSet = new Set(state.hiddenInnerArtsDaoNames || []);
+        const includeHidden = !!state.showHiddenInnerArts;
         const grouped = defs.reduce((acc, def) => {
           const t = Number(def.tier) || 0;
           if (!acc[t]) acc[t] = [];
@@ -2826,55 +2875,55 @@
         const tiers = Object.keys(grouped).map(Number).sort((a, b) => b - a);
         const freeSpace = Math.max(0, inventoryCapacity() - state.inventory.length);
         root.innerHTML = tiers.map((tierNum) => {
-          const tierDefs = grouped[tierNum];
-          const tierKey = `t${tierNum}`;
-          const tierCollapsed = state.masteryFoldAll || !!state.masteryCollapsedTiers[tierKey];
-          const masteredInTier = tierDefs.filter((d) => getDaoMasteryCount(d.name) > 0).length;
+          const tierDefs = grouped[tierNum].filter((def) => includeHidden || !hiddenSet.has(def.name));
+          if (!tierDefs.length) return "";
+          const masteredInTier = tierDefs.length;
           const rows = tierDefs.map((def) => {
             const count = getDaoMasteryCount(def.name);
             const label = masteryTierLabel(count);
             const nextTarget = count < 10 ? 10 : (count < 50 ? 50 : (count < 100 ? 100 : null));
             const progressText = nextTarget ? `${count}/${nextTarget}` : `${count}/100+`;
-            const daoCollapsed = state.masteryFoldAll || !!state.masteryCollapsedDaos[def.name];
             const canTargetManifest = count >= 50;
             const isPeak = count >= 100;
             const excluded = exclusions.has(def.name);
             const canToggleRandomList = unlockedSeedNames().includes(def.name);
+            const isHidden = hiddenSet.has(def.name);
             return `
               <div class="mastery-card" style="padding:6px;">
                 <div class="mastery-row-head">
-                  <button data-mastery-dao-toggle="${def.name}" style="background:transparent;border:1px solid rgba(200,149,42,.4);border-radius:2px;padding:2px 6px;">${daoCollapsed ? "▸" : "▾"}</button>
                   <strong class="mastery-name">${displayName(def)}</strong>
                   <span class="chip">${HARMONY_ICON[def.harmonyClass] || "·"} ${def.harmonyClass}</span>
                   <span class="chip">${def.affinity}</span>
                   <span class="chip">M${count}</span>
                   <span class="chip">${progressText}</span>
                   <span class="chip">${label}</span>
+                  <label class="tooltip" style="display:inline-flex;align-items:center;gap:4px;margin-left:auto;">
+                    <input type="checkbox" data-inner-arts-hide="${def.name}" ${isHidden ? "checked" : ""} />
+                    Hide
+                  </label>
                 </div>
-                ${daoCollapsed ? "" : `
-                  <div class="mastery-bar"><div class="mastery-bar-fill" style="width:${Math.max(0, Math.min(100, (Math.min(100, count) / 100) * 100))}%"></div></div>
-                  <div class="tooltip">Mastery increases when this Dao is created (forged or manifested).</div>
-                  ${canTargetManifest ? `
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                      <button data-manifest-specific="${def.name}" ${freeSpace <= 0 ? "disabled" : ""}>Manifest</button>
-                      ${isPeak ? `<input type="number" min="1" max="${Math.max(1, freeSpace)}" value="1" data-manifest-count-for="${def.name}" style="width:64px;" ${freeSpace <= 0 ? "disabled" : ""} />` : ""}
-                      ${canToggleRandomList ? `<button data-toggle-random="${def.name}">${excluded ? "Add Random" : "Remove Random"}</button>` : ""}
-                    </div>
-                  ` : `<div class="tooltip">Unlock at 50 mastery.</div>`}
-                `}
+                <div class="mastery-bar"><div class="mastery-bar-fill" style="width:${Math.max(0, Math.min(100, (Math.min(100, count) / 100) * 100))}%"></div></div>
+                <div class="tooltip">Inner Arts increases when this Dao is created (forged or manifested).</div>
+                ${canTargetManifest ? `
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button data-manifest-specific="${def.name}" ${freeSpace <= 0 ? "disabled" : ""}>Manifest</button>
+                    ${isPeak ? `<input type="number" min="1" max="${Math.max(1, freeSpace)}" value="1" data-manifest-count-for="${def.name}" style="width:64px;" ${freeSpace <= 0 ? "disabled" : ""} />` : ""}
+                    ${canToggleRandomList ? `<button data-toggle-random="${def.name}">${excluded ? "Add Random" : "Remove Random"}</button>` : ""}
+                  </div>
+                ` : `<div class="tooltip">Unlock at 50 Inner Arts.</div>`}
               </div>
             `;
           }).join("");
           return `
             <section style="display:grid;gap:6px;margin-bottom:8px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <button data-mastery-tier-toggle="${tierKey}" style="background:transparent;border:1px solid rgba(200,149,42,.4);border-radius:2px;padding:3px 8px;">${tierCollapsed ? "▸" : "▾"} Band ${tierNum}</button>
+                <strong>Tier ${tierNum}</strong>
                 <span class="tooltip">${masteredInTier}/${tierDefs.length} touched</span>
               </div>
-              ${tierCollapsed ? "" : `<div class="mastery-tier-grid">${rows}</div>`}
+              <div class="mastery-tier-grid">${rows}</div>
             </section>
           `;
-        }).join("");
+        }).join("") || `<div class="tooltip">All Inner Arts entries are currently hidden. Press "Show Hidden" above to manage them.</div>`;
       }
       function renderMiddlePanelTabs() {
         const forgeBtn = document.getElementById("middleForgeTabBtn");
@@ -2887,11 +2936,11 @@
         const cultivationUnlocked = tutorialReached("open_cultivation");
         const libraryUnlocked = tutorialReached("open_library");
         const masteryUnlocked = tutorialReached("open_mastery");
-        const seedsUnlocked = tutorialReached("open_seeds");
+        const seedsUnlocked = true;
         const mastersUnlocked = tutorialReached("open_masters");
         if (cultivationBtn) {
           cultivationBtn.disabled = !cultivationUnlocked;
-          cultivationBtn.title = cultivationUnlocked ? "Cultivation" : "Unlocks after reaching Tier 2 and reviewing Info.";
+          cultivationBtn.title = cultivationUnlocked ? "Cultivation" : "Unlocks at the Cultivation tutorial step.";
         }
         if (libraryBtn) {
           libraryBtn.disabled = !libraryUnlocked;
@@ -2899,15 +2948,15 @@
         }
         if (masteryBtn) {
           masteryBtn.disabled = !masteryUnlocked;
-          masteryBtn.title = masteryUnlocked ? "Inner Arts" : "Unlocks after reading an advanced Dao.";
+          masteryBtn.title = masteryUnlocked ? "Inner Arts" : "Unlocks at the Inner Arts tutorial step.";
         }
         if (seedsBtn) {
           seedsBtn.disabled = !seedsUnlocked;
-          seedsBtn.title = seedsUnlocked ? "Seeds" : "Unlocks at higher tiers.";
+          seedsBtn.title = "Seeds";
         }
         if (mastersBtn) {
           mastersBtn.disabled = !mastersUnlocked;
-          mastersBtn.title = mastersUnlocked ? "Masters" : "Unlocks after reading an advanced Dao.";
+          mastersBtn.title = mastersUnlocked ? "Masters" : "Unlocks after completing the Seeds tutorial step.";
         }
         const requested = ["cultivation", "library", "mastery", "seeds", "masters"].includes(state.middlePanelTab) ? state.middlePanelTab : "forge";
         const tab = (requested === "cultivation" && !cultivationUnlocked)
@@ -2942,12 +2991,40 @@
         `;
       }
       function renderMiddleMasteryPanel() {
+        const filters = state.innerArtsFilters || { affinity: "all", harmony: "all", manifest: "all" };
         return `
           <div style="display:grid;gap:8px;">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <button data-mastery-fold-all="1">Fold All</button>
-              <button data-mastery-fold-all="0">Expand All</button>
-              <span class="tooltip">Inner Arts growth rises when a Dao is created (forged or manifested). Use this view to track exact thresholds.</span>
+              <button data-inner-arts-show-hidden="${state.showHiddenInnerArts ? "0" : "1"}">${state.showHiddenInnerArts ? "Hide Hidden" : "Show Hidden"}</button>
+              <span class="tooltip">Use Hide on any Dao tile to remove it from this view. Enable Show Hidden to reveal hidden tiles and uncheck Hide.</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <label class="tooltip" style="display:inline-flex;align-items:center;gap:6px;">Affinity
+                <select id="innerArtsFilterAffinity">
+                  <option value="all" ${filters.affinity === "all" ? "selected" : ""}>All</option>
+                  <option value="Yang" ${filters.affinity === "Yang" ? "selected" : ""}>Yang</option>
+                  <option value="Yin" ${filters.affinity === "Yin" ? "selected" : ""}>Yin</option>
+                  <option value="Neutral" ${filters.affinity === "Neutral" ? "selected" : ""}>Neutral</option>
+                  <option value="Paradox" ${filters.affinity === "Paradox" ? "selected" : ""}>Paradox</option>
+                </select>
+              </label>
+              <label class="tooltip" style="display:inline-flex;align-items:center;gap:6px;">Harmony
+                <select id="innerArtsFilterHarmony">
+                  <option value="all" ${filters.harmony === "all" ? "selected" : ""}>All</option>
+                  <option value="Heaven" ${filters.harmony === "Heaven" ? "selected" : ""}>Heaven</option>
+                  <option value="Earth" ${filters.harmony === "Earth" ? "selected" : ""}>Earth</option>
+                  <option value="Human" ${filters.harmony === "Human" ? "selected" : ""}>Human</option>
+                </select>
+              </label>
+              <label class="tooltip" style="display:inline-flex;align-items:center;gap:6px;">Manifest
+                <select id="innerArtsFilterManifest">
+                  <option value="all" ${filters.manifest === "all" ? "selected" : ""}>All</option>
+                  <option value="manifestable" ${filters.manifest === "manifestable" ? "selected" : ""}>50+ (Manifest)</option>
+                  <option value="peak" ${filters.manifest === "peak" ? "selected" : ""}>100+ (Peak)</option>
+                  <option value="unmanifestable" ${filters.manifest === "unmanifestable" ? "selected" : ""}>Under 50</option>
+                </select>
+              </label>
+              <button id="innerArtsFilterResetBtn" class="hint-btn">Reset Filters</button>
             </div>
             <div id="middleMasteryList" class="mastery-list"></div>
           </div>
@@ -3142,8 +3219,12 @@
               <div class="feed" id="recentFeed"></div>
               <div id="t1ManifestAreaForge" class="manifest-area">
                 <div class="manifest-actions">
-                  <button id="seedManifestBtnForge" class="hint-btn">Manifest Random Dao</button>
+                  <button id="seedManifestBtnForge" class="hint-btn manifest-primary-btn">Manifest Random Dao</button>
                   <button id="manifestPoolHelpBtn" class="hint-btn" title="Show random manifest pool" aria-label="Show random manifest pool">?</button>
+                </div>
+                <div id="seedManifestCdTextForge" class="manifest-cooldown-label tooltip"></div>
+                <div class="seed-cooldown-track manifest-cooldown-track">
+                  <div id="seedManifestCdFillForge" class="seed-cooldown-fill"></div>
                 </div>
               </div>
             `;
@@ -3169,8 +3250,9 @@
         const label = daoA && daoB ? resonanceScore(daoA, daoB) : "Neutral";
         const pill = document.getElementById("resonance-indicator");
         if (pill) {
-          if (!tutorialReached("reach_t3")) { pill.classList.add("resonance-locked"); pill.textContent = "Locked"; pill.className = "resonance-pill res-neutral resonance-locked"; }
-          else { pill.classList.remove("resonance-locked"); pill.textContent = label; pill.className = "resonance-pill " + (label === "Resonance" ? "res-resonance" : label === "Discord" ? "res-discord" : label === "Chaos Surge" ? "res-chaos" : "res-neutral"); }
+          pill.classList.remove("resonance-locked");
+          pill.textContent = label;
+          pill.className = "resonance-pill " + (label === "Resonance" ? "res-resonance" : label === "Discord" ? "res-discord" : label === "Chaos Surge" ? "res-chaos" : "res-neutral");
         }
         const forgeBtn = document.getElementById("forgeBtn");
         const reasonEl = document.getElementById("forgeReason");
@@ -3282,14 +3364,15 @@
         const rows = clippedLevels.map((row, idx) => {
           const baseSlots = Math.max(1, row.length);
           const totalSlots = Math.max(baseSlots, displayBottomSlots || baseSlots);
-          const fullSlots = Math.max(1, fullBottomSlots || totalSlots);
           const rowWindow = rowWindows[idx];
-          const scale = totalSlots / fullSlots;
+          const slotRangeFor = (nodeIdx) => {
+            const colStart = Math.floor((nodeIdx * totalSlots) / baseSlots) + 1;
+            const colEnd = Math.floor(((nodeIdx + 1) * totalSlots) / baseSlots) + 1;
+            return { colStart, span: Math.max(1, colEnd - colStart) };
+          };
           const cards = row.map((name, nodeIdx) => {
             const absoluteIdx = rowWindow.start + nodeIdx;
-            const colStart = Math.floor((absoluteIdx * scale) + 1);
-            const colEnd = Math.floor(((absoluteIdx + 1) * scale) + 1);
-            const span = Math.max(1, colEnd - colStart);
+            const { colStart, span } = slotRangeFor(nodeIdx);
             if (!name) return `<div class="lineage-slot" style="grid-column:${colStart} / span ${span};"><div class="lineage-node lineage-node--ghost">•</div></div>`;
             const def = state.canonicalDaos?.[name];
             const title = def ? displayName(def) : name;
@@ -3306,9 +3389,7 @@
             ? `<div class="lineage-branches-row" style="grid-template-columns:repeat(${totalSlots}, var(--lineage-col-w, 120px));">
                 ${row.map((name, nodeIdx) => {
                   const absoluteIdx = rowWindow.start + nodeIdx;
-                  const colStart = Math.floor((absoluteIdx * scale) + 1);
-                  const colEnd = Math.floor(((absoluteIdx + 1) * scale) + 1);
-                  const span = Math.max(1, colEnd - colStart);
+                  const { colStart, span } = slotRangeFor(nodeIdx);
                   if (!name) return `<div class="lineage-branch-slot" style="grid-column:${colStart} / span ${span};"><div class="lineage-branch lineage-branch--ghost"></div></div>`;
                   const leftAbs = absoluteIdx * 2;
                   const rightAbs = leftAbs + 1;
@@ -3352,7 +3433,7 @@
       function renderInfoPanel() {
         const body = document.getElementById("infoPanelBody");
         if (!body) return;
-        if (!tutorialReached("open_info")) { body.innerHTML = `<div class="info-desc">The scroll is sealed. Reach Tier 2 and complete the Info tutorial step to open it.</div>`; return; }
+        if (!tutorialReached("open_library")) { body.innerHTML = `<div class="info-desc">The scroll is sealed. Open the Library step to continue.</div>`; return; }
         const [instA, instB] = selectedInstances();
         if (!instA) {
           quoteIndex = (quoteIndex + 1) % QUOTES.length;
@@ -3485,7 +3566,7 @@
         const rankChip = document.getElementById("player-rank-badge");
         const cpChip = document.getElementById("cp-counter");
         if (!cpChip) return;
-        if (rankChip) rankChip.classList.toggle("hidden", !tutorialReached("discover_t2"));
+        if (rankChip) rankChip.classList.toggle("hidden", !tutorialReached("open_library"));
         cpChip.classList.toggle("hidden", !tutorialReached("earn_cp"));
         if (rankChip) rankChip.textContent = "Rank " + state.playerRank;
         if (rankChip && state.playerRank === 8) {
@@ -4067,8 +4148,8 @@
       }
       function bindSeedManifestButton() {
         const t1Area = document.getElementById("t1ManifestAreaForge");
-        // Unlock around tutorial step 5 timing (after reaching T2 and entering collection phase).
-        const showT1Manifest = tutorialReached("discover_t2");
+        // Unlock once Library is opened in the tutorial.
+        const showT1Manifest = tutorialReached("open_library");
         if (t1Area) t1Area.classList.toggle("hidden", !showT1Manifest);
         const bindOne = (btnId, txtId, fillId) => {
           const btn = document.getElementById(btnId);
@@ -4139,7 +4220,7 @@
           if (area) area.classList.toggle("hidden", !unlockedAny);
           const readyTierCounts = HIGHER_TIER_MANIFEST_MILESTONES
             .filter((m) => canUseHigherTierManifest(m.tier))
-            .map((m) => `Band ${m.tier}:${higherTierManifestPoolNames(m.tier).length}`)
+            .map((m) => `Tier ${m.tier}:${higherTierManifestPoolNames(m.tier).length}`)
             .join(" • ");
           if (!unlockedAny) {
             txt.textContent = "";
@@ -4241,8 +4322,29 @@
         });
         document.body.addEventListener("input", (e) => {
           const target = e.target;
-          if (!(target instanceof HTMLInputElement) || target.id !== "middleLibrarySearchInput") return;
-          state.librarySearch = target.value || "";
+          if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) return;
+          if (target instanceof HTMLInputElement && target.id === "middleLibrarySearchInput") {
+            state.librarySearch = target.value || "";
+            renderSlotsAndForge();
+            return;
+          }
+          if (target instanceof HTMLSelectElement && target.id.startsWith("innerArtsFilter")) {
+            if (!state.innerArtsFilters || typeof state.innerArtsFilters !== "object") resetInnerArtsFilters();
+            if (target.id === "innerArtsFilterAffinity") state.innerArtsFilters.affinity = target.value || "all";
+            if (target.id === "innerArtsFilterHarmony") state.innerArtsFilters.harmony = target.value || "all";
+            if (target.id === "innerArtsFilterManifest") state.innerArtsFilters.manifest = target.value || "all";
+            saveState();
+            renderSlotsAndForge();
+            return;
+          }
+          if (!(target instanceof HTMLInputElement)) return;
+          const hideName = target.getAttribute("data-inner-arts-hide");
+          if (!hideName) return;
+          const set = new Set(state.hiddenInnerArtsDaoNames || []);
+          if (target.checked) set.add(hideName);
+          else set.delete(hideName);
+          state.hiddenInnerArtsDaoNames = Array.from(set);
+          saveState();
           renderSlotsAndForge();
         });
         document.body.addEventListener("click", (e) => {
@@ -4258,32 +4360,16 @@
             }
             return;
           }
-          const foldAllBtn = target.closest("button[data-mastery-fold-all]");
-          if (foldAllBtn) {
-            const mode = foldAllBtn.getAttribute("data-mastery-fold-all");
-            state.masteryFoldAll = mode === "1";
-            if (!state.masteryFoldAll) {
-              state.masteryCollapsedTiers = {};
-              state.masteryCollapsedDaos = {};
-            }
+          const showHiddenBtn = target.closest("button[data-inner-arts-show-hidden]");
+          if (showHiddenBtn) {
+            const mode = showHiddenBtn.getAttribute("data-inner-arts-show-hidden");
+            state.showHiddenInnerArts = mode === "1";
             saveState();
             renderSlotsAndForge();
             return;
           }
-          const tierToggle = target.closest("button[data-mastery-tier-toggle]");
-          if (tierToggle) {
-            const key = tierToggle.getAttribute("data-mastery-tier-toggle");
-            if (key) state.masteryCollapsedTiers[key] = !state.masteryCollapsedTiers[key];
-            state.masteryFoldAll = false;
-            saveState();
-            renderSlotsAndForge();
-            return;
-          }
-          const daoToggle = target.closest("button[data-mastery-dao-toggle]");
-          if (daoToggle) {
-            const key = daoToggle.getAttribute("data-mastery-dao-toggle");
-            if (key) state.masteryCollapsedDaos[key] = !state.masteryCollapsedDaos[key];
-            state.masteryFoldAll = false;
+          if (target.id === "innerArtsFilterResetBtn") {
+            resetInnerArtsFilters();
             saveState();
             renderSlotsAndForge();
             return;
@@ -4320,7 +4406,7 @@
             else if (target.id === "manifestPoolHelpBtn") openRandomManifestPoolModal();
             else if (target.id === "middleForgeTabBtn") { state.middlePanelTab = "forge"; rerenderUI(); }
             else if (target.id === "middleCultivationTabBtn") {
-              if (!tutorialReached("open_cultivation")) { showToast("Cultivation unlocks in the tutorial after Tier 2.", "info"); return; }
+              if (!tutorialReached("open_cultivation")) { showToast("Cultivation unlocks at its tutorial step.", "info"); return; }
               state.middlePanelTab = "cultivation";
               state.tutorialActions.openedCultivationTab = true;
               checkTutorialAdvancement();
@@ -4336,7 +4422,6 @@
               state.middlePanelTab = "forge";
               rerenderUI();
             } else if (target.id === "middleSeedsTabBtn") {
-              if (!tutorialReached("open_seeds")) { showToast("Seeds unlock after the Tier 4 tutorial milestone.", "info"); return; }
               state.middlePanelTab = "seeds";
               state.tutorialActions.openedSeedsTab = true;
               checkTutorialAdvancement();
@@ -4398,6 +4483,7 @@
           state.tutorialActions.openedMasteryTab = true;
           state.tutorialActions.openedSeedsTab = true;
           state.tutorialActions.openedMastersTab = true;
+          state.tutorialActions.claimedQuestReward = true;
           state.tutorialActions.activatedFirstDao = true;
           state.tutorialActions.replacedActiveDao = true;
           state.tutorialDismissed = true;

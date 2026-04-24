@@ -59,7 +59,7 @@
       radial-gradient(ellipse at 75% 75%, #080503 0%, transparent 50%),
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
     color: var(--ink);
-    font-family: "Noto Serif SC", "Noto Serif", serif !important;
+    font-family: "Noto Sans SC", "Noto Sans", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif !important;
     min-height: 100vh;
   }
   
@@ -79,16 +79,11 @@
   }
   
   button, input, select {
-    font-family: "Noto Serif SC", "Noto Serif", serif !important;
+    font-family: "Noto Sans SC", "Noto Sans", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif !important;
     border-radius: 2px !important;
   }
   
-  .serif, h1, h2, h3, .dao-name,
-  .middle-panel-tabs button,
-  .left-tabs button,
-  .mobile-tabs button,
-  .forge-btn,
-  .tier-badge {
+  .serif, h1, h2, h3 {
     font-family: "Ma Shan Zheng", "Liu Jian Mao Cao", serif !important;
   }
   
@@ -868,13 +863,44 @@
   margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
+  border: 1px solid rgba(200, 149, 42, 0.35);
+  border-radius: 2px;
+  padding: 9px 10px;
+  background: linear-gradient(180deg, rgba(53, 35, 18, 0.14), rgba(53, 35, 18, 0.05));
 }
 .manifest-actions {
   display: flex;
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
+}
+.manifest-primary-btn {
+  min-height: 34px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border-color: rgba(226, 182, 104, 0.78) !important;
+  background: linear-gradient(160deg, #6f4b1f, #9b6a2b) !important;
+  color: #fff4d4 !important;
+  box-shadow: 0 0 0 1px rgba(244, 215, 154, 0.25), 0 6px 16px rgba(0, 0, 0, 0.22);
+}
+.manifest-primary-btn:hover:enabled {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 1px rgba(244, 215, 154, 0.38), 0 8px 20px rgba(0, 0, 0, 0.26);
+}
+.manifest-cooldown-label {
+  min-height: 16px;
+  color: #6e5128;
+  font-size: 12px;
+}
+.manifest-cooldown-track.seed-cooldown-track {
+  height: 10px;
+  background: rgba(36, 24, 12, 0.28);
+  border-color: rgba(200, 149, 42, 0.38);
+}
+.manifest-cooldown-track .seed-cooldown-fill {
+  background: linear-gradient(90deg, #4f784f, #c8952a, #f1cf87);
+  box-shadow: 0 0 10px rgba(244, 204, 121, 0.35);
 }
   
   #knownForgeResult {
